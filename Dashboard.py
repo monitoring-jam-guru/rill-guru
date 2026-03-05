@@ -294,6 +294,11 @@ elif menu == "Upload Foto Mengajar":
         
         # filter hari di python supaya lebih aman
         jadwal_guru = jadwal_guru[jadwal_guru["hari"] == hari]
+        
+        # DEBUG
+        st.write("Hari sistem:", hari)
+        st.write("Jam upload:", jam)
+        st.write("Jumlah jadwal ditemukan:", len(jadwal_guru))
 
         from datetime import datetime, timedelta
 
@@ -301,19 +306,20 @@ elif menu == "Upload Foto Mengajar":
         
         jam_upload = datetime.strptime(jam,"%H:%M:%S")
         
-        if len(jadwal_guru) > 0:
+        for i,row in jadwal_guru.iterrows():
         
-            for i,row in jadwal_guru.iterrows():
+            if row["hari"] != hari:
+                continue
         
-                mulai = datetime.strptime(row["jam_mulai"],"%H:%M:%S")
-                selesai = datetime.strptime(row["jam_selesai"],"%H:%M:%S")
+            mulai = datetime.strptime(row["jam_mulai"],"%H:%M:%S")
+            selesai = datetime.strptime(row["jam_selesai"],"%H:%M:%S")
         
-                # toleransi 10 menit
-                selesai_toleransi = selesai + timedelta(minutes=10)
+            # toleransi 15 menit
+            selesai_toleransi = selesai + timedelta(minutes=15)
         
-                if mulai <= jam_upload <= selesai_toleransi:
-                    status = "Sesuai"
-                    break
+            if mulai <= jam_upload <= selesai_toleransi:
+                status = "Sesuai"
+                break
 
         if not os.path.exists("uploads"):
             os.makedirs("uploads")
