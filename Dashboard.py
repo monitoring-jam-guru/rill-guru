@@ -287,18 +287,21 @@ elif menu == "Upload Foto Mengajar":
         hari = hari_map.get(hari,hari)
 
         jadwal_guru = pd.read_sql(
-        "SELECT * FROM jadwal WHERE nama=? AND hari=?",
+        "SELECT * FROM jadwal WHERE nama=?",
         conn,
-        params=(nama,hari)
+        params=(nama,)
         )
+        
+        # filter hari di python supaya lebih aman
+        jadwal_guru = jadwal_guru[jadwal_guru["hari"] == hari]
 
         from datetime import datetime, timedelta
 
         status = "Tidak Sesuai"
         
-        if len(jadwal_guru) > 0:
+        jam_upload = datetime.strptime(jam,"%H:%M:%S")
         
-            jam_upload = datetime.strptime(jam,"%H:%M:%S")
+        if len(jadwal_guru) > 0:
         
             for i,row in jadwal_guru.iterrows():
         
