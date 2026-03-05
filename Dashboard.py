@@ -4,40 +4,50 @@ import sqlite3
 from datetime import datetime
 import os
 
-st.set_page_config(
-    page_title="DIMORA-SU",
-    layout="wide"
-)
+st.set_page_config(page_title="DIMORA-SU", layout="wide")
 
-# ===============================
-# DATABASE CONNECTION
-# ===============================
+st.title("DIMORA-SU")
+st.subheader("Digital Monitoring Jam Mengajar Guru")
+
+# =====================================
+# DATABASE
+# =====================================
 
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
-# ===============================
-# CREATE TABLE IF NOT EXIST
-# ===============================
+# =====================================
+# TABLE GURU
+# =====================================
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS guru(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
+nik TEXT,
 nama TEXT,
 sekolah TEXT,
 mapel TEXT
 )
 """)
 
+# =====================================
+# TABLE JADWAL
+# =====================================
+
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS jadwal(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 nama TEXT,
 hari TEXT,
+kelas TEXT,
 jam_mulai TEXT,
 jam_selesai TEXT
 )
 """)
+
+# =====================================
+# TABLE AKTIVITAS
+# =====================================
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS aktivitas(
@@ -52,69 +62,13 @@ foto TEXT
 
 conn.commit()
 
-# ===============================
-# STYLE
-# ===============================
-
-st.markdown("""
-<style>
-
-.big-title{
-font-size:40px;
-font-weight:bold;
-color:#0d47a1;
-}
-
-.card{
-padding:20px;
-border-radius:15px;
-background-color:#f5f5f5;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# ===============================
-# HEADER
-# ===============================
-
-st.markdown('<p class="big-title">DIMORA-SU Dashboard</p>', unsafe_allow_html=True)
-
-st.write("Digital Monitoring Jam Mengajar Guru")
-
-# ===============================
-# DATA STATISTICS
-# ===============================
-
 guru = pd.read_sql("SELECT * FROM guru", conn)
+jadwal = pd.read_sql("SELECT * FROM jadwal", conn)
 aktivitas = pd.read_sql("SELECT * FROM aktivitas", conn)
 
-total_guru = len(guru)
-total_upload = len(aktivitas)
-
-hari_ini = datetime.now().strftime("%Y-%m-%d")
-
-today = aktivitas[aktivitas["tanggal"] == hari_ini]
-
-mengajar = len(today[today["status"] == "Sesuai"])
-tidak_mengajar = len(today[today["status"] == "Tidak Sesuai"])
-
-# ===============================
-# DASHBOARD CARD
-# ===============================
-
-col1, col2, col3, col4 = st.columns(4)
-
-col1.metric("Total Guru", total_guru)
-col2.metric("Upload Hari Ini", len(today))
-col3.metric("Mengajar Sesuai", mengajar)
-col4.metric("Tidak Sesuai", tidak_mengajar)
-
-st.divider()
-
-# ===============================
+# =====================================
 # MENU
-# ===============================
+# =====================================
 
 menu = st.sidebar.selectbox(
 "Menu",
@@ -122,19 +76,44 @@ menu = st.sidebar.selectbox(
 "Dashboard",
 "Tambah Guru",
 "Tambah Jadwal",
+"Edit Jadwal",
 "Upload Foto Mengajar",
 "Monitoring Hari Ini"
 ]
 )
 
-# ===============================
-# TAMBAH DATA GURU
-# ===============================
+# =====================================
+# DASHBOARD
+# =====================================
 
-if menu == "Tambah Guru":
+if menu == "Dashboard":
 
-    st.subheader("Input Data Guru")
+    st.subheader("Statistik")
 
+    total_guru = len(guru)
+
+    hari_ini = datetime.now().strftime("%Y-%m-%d")
+
+    today = aktivitas[aktivitas["tanggal"] == hari_ini]
+
+    sesuai = len(today[today["status"] == "Sesuai"])
+    tidak = len(today[today["status"] == "Tidak Sesuai"])
+
+    col1,col2,col3 = st.columns(3)
+
+    col1.metric("Total Guru", total_guru)
+    col2.metric("Jam Sesuai", sesuai)
+    col3.metric("Tidak Sesuai", tidak)
+
+# =====================================
+# TAMBAH GURU
+# =====================================
+
+elif menu == "Tambah Guru":
+
+    st.subheader("Tambah Data Guru")
+
+    nik = st.text_input("NIK Guru")
     nama = st.text_input("Nama Guru")
     sekolah = st.text_input("Sekolah")
     mapel = st.text_input("Mata Pelajaran")
@@ -142,21 +121,21 @@ if menu == "Tambah Guru":
     if st.button("Simpan Guru"):
 
         cursor.execute(
-        "INSERT INTO guru (nama,sekolah,mapel) VALUES (?,?,?)",
-        (nama,sekolah,mapel)
+        "INSERT INTO guru (nik,nama,sekolah,mapel) VALUES (?,?,?,?)",
+        (nik,nama,sekolah,mapel)
         )
 
         conn.commit()
 
-        st.success("Data Guru Berhasil Disimpan")
+        st.success("Guru Berhasil Ditambahkan")
 
-# ===============================
+# =====================================
 # TAMBAH JADWAL
-# ===============================
+# =====================================
 
 elif menu == "Tambah Jadwal":
 
-    st.subheader("Input Jadwal Mengajar")
+    st.subheader("Tambah Jadwal Mengajar")
 
     guru_list = guru["nama"].tolist()
 
@@ -167,23 +146,94 @@ elif menu == "Tambah Jadwal":
     ["Senin","Selasa","Rabu","Kamis","Jumat"]
     )
 
+    kelas = st.text_input("Kelas")
+
     jam_mulai = st.time_input("Jam Mulai")
     jam_selesai = st.time_input("Jam Selesai")
 
-    if st.button("Simpan Jadwal"):
+    if st.button("Tambah Jadwal"):
 
         cursor.execute(
-        "INSERT INTO jadwal (nama,hari,jam_mulai,jam_selesai) VALUES (?,?,?,?)",
-        (nama,hari,str(jam_mulai),str(jam_selesai))
+        "INSERT INTO jadwal (nama,hari,kelas,jam_mulai,jam_selesai) VALUES (?,?,?,?,?)",
+        (nama,hari,kelas,str(jam_mulai),str(jam_selesai))
         )
 
         conn.commit()
 
-        st.success("Jadwal Berhasil Disimpan")
+        st.success("Jadwal Ditambahkan")
 
-# ===============================
-# UPLOAD FOTO MENGAJAR
-# ===============================
+    st.divider()
+
+    st.subheader("Daftar Jadwal")
+
+    data = pd.read_sql("SELECT * FROM jadwal", conn)
+
+    st.dataframe(data)
+
+# =====================================
+# EDIT JADWAL
+# =====================================
+
+elif menu == "Edit Jadwal":
+
+    st.subheader("Edit Jadwal Guru")
+
+    data = pd.read_sql("SELECT * FROM jadwal", conn)
+
+    if len(data) == 0:
+
+        st.warning("Belum ada jadwal")
+
+    else:
+
+        id_jadwal = st.selectbox(
+        "Pilih Jadwal",
+        data["id"]
+        )
+
+        row = data[data["id"] == id_jadwal].iloc[0]
+
+        kelas = st.text_input("Kelas", row["kelas"])
+
+        jam_mulai = st.time_input(
+        "Jam Mulai",
+        datetime.strptime(row["jam_mulai"], "%H:%M:%S").time()
+        )
+
+        jam_selesai = st.time_input(
+        "Jam Selesai",
+        datetime.strptime(row["jam_selesai"], "%H:%M:%S").time()
+        )
+
+        if st.button("Update Jadwal"):
+
+            cursor.execute(
+            """
+            UPDATE jadwal
+            SET kelas=?, jam_mulai=?, jam_selesai=?
+            WHERE id=?
+            """,
+            (kelas,str(jam_mulai),str(jam_selesai),id_jadwal)
+            )
+
+            conn.commit()
+
+            st.success("Jadwal Berhasil Diubah")
+
+        if st.button("Hapus Jadwal"):
+
+            cursor.execute(
+            "DELETE FROM jadwal WHERE id=?",
+            (id_jadwal,)
+            )
+
+            conn.commit()
+
+            st.warning("Jadwal Dihapus")
+
+# =====================================
+# UPLOAD FOTO
+# =====================================
 
 elif menu == "Upload Foto Mengajar":
 
@@ -198,6 +248,7 @@ elif menu == "Upload Foto Mengajar":
     if st.button("Upload"):
 
         waktu = datetime.now()
+
         tanggal = waktu.strftime("%Y-%m-%d")
         jam = waktu.strftime("%H:%M:%S")
 
@@ -213,31 +264,26 @@ elif menu == "Upload Foto Mengajar":
 
         hari = hari_map.get(hari, hari)
 
-        jadwal = pd.read_sql(
+        jadwal_guru = pd.read_sql(
         f"SELECT * FROM jadwal WHERE nama='{nama}' AND hari='{hari}'",
         conn
         )
 
         status = "Tidak Sesuai"
 
-        if len(jadwal) > 0:
+        for i,row in jadwal_guru.iterrows():
 
-            jm = jadwal.iloc[0]["jam_mulai"]
-            js = jadwal.iloc[0]["jam_selesai"]
-
-            if jm <= jam <= js:
+            if row["jam_mulai"] <= jam <= row["jam_selesai"]:
                 status = "Sesuai"
 
         if foto is not None:
 
-            folder = "uploads"
+            if not os.path.exists("uploads"):
+                os.makedirs("uploads")
 
-            if not os.path.exists(folder):
-                os.makedirs(folder)
+            path = os.path.join("uploads", foto.name)
 
-            path = os.path.join(folder, foto.name)
-
-            with open(path, "wb") as f:
+            with open(path,"wb") as f:
                 f.write(foto.getbuffer())
 
         cursor.execute(
@@ -247,17 +293,18 @@ elif menu == "Upload Foto Mengajar":
 
         conn.commit()
 
-        st.success("Foto Berhasil Diupload")
-
+        st.success("Upload Berhasil")
         st.write("Timestamp:", waktu)
 
-# ===============================
+# =====================================
 # MONITORING
-# ===============================
+# =====================================
 
 elif menu == "Monitoring Hari Ini":
 
-    st.subheader("Monitoring Mengajar Hari Ini")
+    st.subheader("Monitoring Guru")
+
+    hari_ini = datetime.now().strftime("%Y-%m-%d")
 
     data = pd.read_sql(
     f"SELECT * FROM aktivitas WHERE tanggal='{hari_ini}'",
@@ -266,7 +313,7 @@ elif menu == "Monitoring Hari Ini":
 
     if len(data) == 0:
 
-        st.warning("Belum ada aktivitas hari ini")
+        st.warning("Belum ada aktivitas")
 
     else:
 
@@ -277,18 +324,3 @@ elif menu == "Monitoring Hari Ini":
 
             else:
                 st.error(f"{row['nama']} - {row['jam']}")
-
-# ===============================
-# DASHBOARD
-# ===============================
-
-else:
-
-    st.subheader("Aktivitas Terbaru")
-
-    data = pd.read_sql(
-    "SELECT * FROM aktivitas ORDER BY id DESC LIMIT 10",
-    conn
-    )
-
-    st.dataframe(data)
