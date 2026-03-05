@@ -1,0 +1,6 @@
+streamlit
+pandas
+pillow
+fpdf
+folium
+streamlit-folium
