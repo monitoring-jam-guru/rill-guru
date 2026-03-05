@@ -4,3 +4,4 @@ pillow
 fpdf
 folium
 streamlit-folium
+matplotlib
