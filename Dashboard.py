@@ -153,36 +153,56 @@ elif menu == "Tambah Jadwal":
     st.title("Input Jadwal Mengajar")
 
     if len(guru) == 0:
-
         st.warning("Tambahkan data guru terlebih dahulu")
         st.stop()
 
     nama = st.selectbox("Nama Guru", guru["nama"].tolist())
 
     hari = st.selectbox(
-    "Hari",
-    ["Senin","Selasa","Rabu","Kamis","Jumat"]
+        "Hari Mengajar",
+        ["Senin","Selasa","Rabu","Kamis","Jumat"]
     )
 
-    kelas = st.text_input("Kelas")
-
+    kelas = st.text_input("Kelas Mengajar")
+    kelas = st.selectbox(
+    "Kelas",
+    [
+    "X IPA 1",
+    "X IPA 2",
+    "X IPS 1",
+    "XI IPA 1",
+    "XI IPS 1",
+    "XII IPA 1"
+    ]
+    )
     jam_mulai = st.time_input("Jam Mulai")
     jam_selesai = st.time_input("Jam Selesai")
 
     if st.button("Simpan Jadwal"):
 
-        cursor.execute(
-        "INSERT INTO jadwal (nama,hari,kelas,jam_mulai,jam_selesai) VALUES (?,?,?,?,?)",
-        (nama,hari,kelas,str(jam_mulai),str(jam_selesai))
-        )
+        try:
 
-        conn.commit()
+            cursor.execute(
+            """
+            INSERT INTO jadwal (nama,hari,kelas,jam_mulai,jam_selesai)
+            VALUES (?,?,?,?,?)
+            """,
+            (nama,hari,kelas,str(jam_mulai),str(jam_selesai))
+            )
 
-        st.success("Jadwal berhasil disimpan")
+            conn.commit()
+
+            st.success("Jadwal berhasil disimpan")
+
+        except Exception as e:
+
+            st.error(f"Terjadi error: {e}")
 
     st.subheader("Daftar Jadwal")
 
-    st.dataframe(jadwal)
+    data_jadwal = pd.read_sql("SELECT * FROM jadwal", conn)
+
+    st.dataframe(data_jadwal)
 
 # ==========================
 # UPLOAD FOTO
