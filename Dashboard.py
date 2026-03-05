@@ -97,30 +97,38 @@ def watermark(path,text):
 if menu == "Dashboard":
 
     st.title("DIMORA-SU")
-    st.subheader("Digital Monitoring Jam Mengajar Guru")
+    st.caption("Digital Monitoring Jam Mengajar Guru")
+
+    hari_ini = datetime.now().strftime("%Y-%m-%d")
+
+    data_today = aktivitas[aktivitas["tanggal"] == hari_ini]
+
+    sesuai = len(data_today[data_today["status"]=="Sesuai"])
+    tidak = len(data_today[data_today["status"]=="Tidak Sesuai"])
 
     col1,col2,col3 = st.columns(3)
 
     col1.metric("Total Guru", len(guru))
-    col2.metric("Total Jadwal", len(jadwal))
-    col3.metric("Total Aktivitas", len(aktivitas))
+    col2.metric("Mengajar Sesuai", sesuai)
+    col3.metric("Tidak Sesuai", tidak)
 
     st.divider()
 
-    st.subheader("Grafik Monitoring")
+    st.subheader("Grafik Monitoring Hari Ini")
 
-    if len(aktivitas) > 0:
+    if len(data_today)>0:
 
-        grafik = aktivitas.groupby("status").size()
+        grafik = data_today.groupby("status").size()
 
-        fig, ax = plt.subplots()
-        grafik.plot(kind="bar", ax=ax)
-
-        st.pyplot(fig)
+        st.bar_chart(grafik)
 
     else:
-        st.info("Belum ada aktivitas")
+        st.info("Belum ada aktivitas hari ini")
+    st.subheader("Aktivitas Guru")
 
+    st.dataframe(
+        aktivitas.sort_values("id", ascending=False)
+    )
 # =========================
 # TAMBAH GURU
 # =========================
@@ -285,18 +293,30 @@ elif menu == "Upload Foto Mengajar":
         params=(nama,hari)
         )
 
-        status="Tidak Sesuai"
+        from datetime import datetime, timedelta
 
+        status = "Tidak Sesuai"
+        
+        jam_upload = datetime.strptime(jam,"%H:%M:%S")
+        
         for i,row in jadwal_guru.iterrows():
-
-            if row["jam_mulai"]<=jam<=row["jam_selesai"]:
-                status="Sesuai"
+        
+            mulai = datetime.strptime(row["jam_mulai"],"%H:%M:%S")
+            selesai = datetime.strptime(row["jam_selesai"],"%H:%M:%S")
+        
+            # toleransi 10 menit
+            selesai_toleransi = selesai + timedelta(minutes=10)
+        
+            if mulai <= jam_upload <= selesai_toleransi:
+                status = "Sesuai"
 
         if not os.path.exists("uploads"):
             os.makedirs("uploads")
 
-        path=os.path.join("uploads",foto.name)
+        filename = f"{nama}_{tanggal}_{jam}.jpg"
 
+        path = os.path.join("uploads",filename)
+        
         with open(path,"wb") as f:
             f.write(foto.getbuffer())
 
@@ -338,14 +358,24 @@ elif menu == "Monitoring Hari Ini":
 
         data = data[data["nama"].isin(guru_sekolah)]
 
-    for i,row in data.iterrows():
+    if len(data)==0:
+        st.warning("Belum ada aktivitas hari ini")
 
-        if row["status"]=="Sesuai":
-            st.success(f"{row['nama']} - {row['jam']}")
+    else:
 
-        else:
-            st.error(f"{row['nama']} - {row['jam']}")
+        for i,row in data.iterrows():
 
+            if row["status"]=="Sesuai":
+
+                st.success(
+                f"🟢 {row['nama']} - {row['jam']}"
+                )
+
+            else:
+
+                st.error(
+                f"🔴 {row['nama']} - {row['jam']}"
+                )
 # =========================
 # PETA SEKOLAH
 # =========================
