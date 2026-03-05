@@ -195,9 +195,9 @@ elif menu == "Upload Foto Mengajar":
 
     if st.button("Upload"):
 
-        if foto is None:
-            st.error("Silakan upload foto terlebih dahulu")
-            st.stop()
+    if foto is None:
+        st.error("Silakan upload foto terlebih dahulu")
+        st.stop()
 
         waktu = datetime.now()
 
