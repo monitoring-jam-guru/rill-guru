@@ -14,7 +14,7 @@ st.set_page_config(layout="wide")
 # DATABASE
 # ==========================
 
-conn = sqlite3.connect("database.db",check_same_thread=False)
+conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -53,9 +53,9 @@ foto TEXT
 
 conn.commit()
 
-guru = pd.read_sql("SELECT * FROM guru",conn)
-jadwal = pd.read_sql("SELECT * FROM jadwal",conn)
-aktivitas = pd.read_sql("SELECT * FROM aktivitas",conn)
+guru = pd.read_sql("SELECT * FROM guru", conn)
+jadwal = pd.read_sql("SELECT * FROM jadwal", conn)
+aktivitas = pd.read_sql("SELECT * FROM aktivitas", conn)
 
 # ==========================
 # MENU
@@ -78,47 +78,47 @@ menu = st.sidebar.selectbox(
 # DASHBOARD
 # ==========================
 
-if menu=="Dashboard":
+if menu == "Dashboard":
 
     st.title("DIMORA-SU")
     st.subheader("Dashboard Monitoring Guru")
 
-    hari_ini=datetime.now().strftime("%Y-%m-%d")
+    hari_ini = datetime.now().strftime("%Y-%m-%d")
 
-    data_today=aktivitas[aktivitas["tanggal"]==hari_ini]
+    data_today = aktivitas[aktivitas["tanggal"] == hari_ini]
 
-    sesuai=len(data_today[data_today["status"]=="Sesuai"])
-    tidak=len(data_today[data_today["status"]=="Tidak Sesuai"])
+    sesuai = len(data_today[data_today["status"] == "Sesuai"])
+    tidak = len(data_today[data_today["status"] == "Tidak Sesuai"])
 
-    col1,col2,col3=st.columns(3)
+    col1, col2, col3 = st.columns(3)
 
-    col1.metric("Total Guru",len(guru))
-    col2.metric("Mengajar Sesuai",sesuai)
-    col3.metric("Tidak Mengajar",tidak)
+    col1.metric("Total Guru", len(guru))
+    col2.metric("Mengajar Sesuai", sesuai)
+    col3.metric("Tidak Mengajar", tidak)
 
     st.subheader("Grafik Aktivitas")
 
-    chart=data_today.groupby("status").size()
-
-    st.bar_chart(chart)
+    if len(data_today) > 0:
+        chart = data_today.groupby("status").size()
+        st.bar_chart(chart)
 
 # ==========================
 # TAMBAH GURU
 # ==========================
 
-elif menu=="Tambah Guru":
+elif menu == "Tambah Guru":
 
     st.title("Tambah Guru")
 
-    nik=st.text_input("NIK")
-    nama=st.text_input("Nama Guru")
-    sekolah=st.text_input("Sekolah")
-    mapel=st.text_input("Mata Pelajaran")
+    nik = st.text_input("NIK")
+    nama = st.text_input("Nama Guru")
+    sekolah = st.text_input("Sekolah")
+    mapel = st.text_input("Mata Pelajaran")
 
     st.subheader("Lokasi Sekolah")
 
-    lat=st.number_input("Latitude",value=3.5952)
-    lon=st.number_input("Longitude",value=98.6722)
+    lat = st.number_input("Latitude", value=3.5952)
+    lon = st.number_input("Longitude", value=98.6722)
 
     if st.button("Simpan"):
 
@@ -135,18 +135,22 @@ elif menu=="Tambah Guru":
 # TAMBAH JADWAL
 # ==========================
 
-elif menu=="Tambah Jadwal":
+elif menu == "Tambah Jadwal":
 
     st.title("Tambah Jadwal")
 
-    nama=st.selectbox("Guru",guru["nama"])
+    if len(guru) == 0:
+        st.warning("Tambahkan guru terlebih dahulu")
+        st.stop()
 
-    hari=st.selectbox("Hari",["Senin","Selasa","Rabu","Kamis","Jumat"])
+    nama = st.selectbox("Guru", guru["nama"].tolist())
 
-    kelas=st.text_input("Kelas")
+    hari = st.selectbox("Hari", ["Senin","Selasa","Rabu","Kamis","Jumat"])
 
-    jam_mulai=st.time_input("Jam Mulai")
-    jam_selesai=st.time_input("Jam Selesai")
+    kelas = st.text_input("Kelas")
+
+    jam_mulai = st.time_input("Jam Mulai")
+    jam_selesai = st.time_input("Jam Selesai")
 
     if st.button("Simpan Jadwal"):
 
@@ -165,9 +169,9 @@ elif menu=="Tambah Jadwal":
 
 def watermark(img_path,text):
 
-    img=Image.open(img_path)
+    img = Image.open(img_path)
 
-    draw=ImageDraw.Draw(img)
+    draw = ImageDraw.Draw(img)
 
     draw.text((10,10),text,(255,0,0))
 
@@ -177,24 +181,32 @@ def watermark(img_path,text):
 # UPLOAD FOTO
 # ==========================
 
-elif menu=="Upload Foto Mengajar":
+elif menu == "Upload Foto Mengajar":
 
     st.title("Upload Bukti Mengajar")
 
-    nama=st.selectbox("Guru",guru["nama"])
+    if len(guru) == 0:
+        st.warning("Belum ada data guru")
+        st.stop()
 
-    foto=st.file_uploader("Upload Foto",type=["jpg","png"])
+    nama = st.selectbox("Guru", guru["nama"].tolist())
+
+    foto = st.file_uploader("Upload Foto", type=["jpg","png"])
 
     if st.button("Upload"):
 
-        waktu=datetime.now()
+        if foto is None:
+            st.error("Silakan upload foto terlebih dahulu")
+            st.stop()
 
-        tanggal=waktu.strftime("%Y-%m-%d")
-        jam=waktu.strftime("%H:%M:%S")
+        waktu = datetime.now()
 
-        hari=waktu.strftime("%A")
+        tanggal = waktu.strftime("%Y-%m-%d")
+        jam = waktu.strftime("%H:%M:%S")
 
-        hari_map={
+        hari = waktu.strftime("%A")
+
+        hari_map = {
         "Monday":"Senin",
         "Tuesday":"Selasa",
         "Wednesday":"Rabu",
@@ -202,25 +214,25 @@ elif menu=="Upload Foto Mengajar":
         "Friday":"Jumat"
         }
 
-        hari=hari_map.get(hari,hari)
+        hari = hari_map.get(hari, hari)
 
-        jadwal_guru=pd.read_sql(
-        f"SELECT * FROM jadwal WHERE nama='{nama}' AND hari='{hari}'",
-        conn
+        jadwal_guru = pd.read_sql(
+        "SELECT * FROM jadwal WHERE nama=? AND hari=?",
+        conn,
+        params=(nama,hari)
         )
 
-        status="Tidak Sesuai"
+        status = "Tidak Sesuai"
 
         for i,row in jadwal_guru.iterrows():
 
-            if row["jam_mulai"]<=jam<=row["jam_selesai"]:
-
-                status="Sesuai"
+            if row["jam_mulai"] <= jam <= row["jam_selesai"]:
+                status = "Sesuai"
 
         if not os.path.exists("uploads"):
             os.makedirs("uploads")
 
-        path="uploads/"+foto.name
+        path = os.path.join("uploads", foto.name)
 
         with open(path,"wb") as f:
             f.write(foto.getbuffer())
@@ -240,18 +252,19 @@ elif menu=="Upload Foto Mengajar":
 # MONITORING
 # ==========================
 
-elif menu=="Monitoring Hari Ini":
+elif menu == "Monitoring Hari Ini":
 
     st.title("Monitoring Guru")
 
-    hari_ini=datetime.now().strftime("%Y-%m-%d")
+    hari_ini = datetime.now().strftime("%Y-%m-%d")
 
-    data=pd.read_sql(
-    f"SELECT * FROM aktivitas WHERE tanggal='{hari_ini}'",
-    conn
+    data = pd.read_sql(
+    "SELECT * FROM aktivitas WHERE tanggal=?",
+    conn,
+    params=(hari_ini,)
     )
 
-    if len(data)==0:
+    if len(data) == 0:
 
         st.warning("Belum ada aktivitas")
 
@@ -259,23 +272,21 @@ elif menu=="Monitoring Hari Ini":
 
         for i,row in data.iterrows():
 
-            if row["status"]=="Sesuai":
-
+            if row["status"] == "Sesuai":
                 st.success(f"{row['nama']} - {row['jam']}")
 
             else:
-
                 st.error(f"{row['nama']} - {row['jam']}")
 
 # ==========================
 # PETA SEKOLAH
 # ==========================
 
-elif menu=="Peta Sekolah":
+elif menu == "Peta Sekolah":
 
-    st.title("Peta Sekolah Sumatera Utara")
+    st.title("Peta Sekolah")
 
-    m=folium.Map(location=[3.6,98.6],zoom_start=7)
+    m = folium.Map(location=[3.6,98.6], zoom_start=7)
 
     for i,row in guru.iterrows():
 
@@ -290,30 +301,29 @@ elif menu=="Peta Sekolah":
 # LAPORAN PDF
 # ==========================
 
-elif menu=="Laporan Kadis":
+elif menu == "Laporan Kadis":
 
     st.title("Laporan Monitoring")
 
-    hari_ini=datetime.now().strftime("%Y-%m-%d")
+    hari_ini = datetime.now().strftime("%Y-%m-%d")
 
-    data=pd.read_sql(
-    f"SELECT * FROM aktivitas WHERE tanggal='{hari_ini}'",
-    conn
+    data = pd.read_sql(
+    "SELECT * FROM aktivitas WHERE tanggal=?",
+    conn,
+    params=(hari_ini,)
     )
 
     if st.button("Generate PDF"):
 
-        pdf=FPDF()
-
+        pdf = FPDF()
         pdf.add_page()
-
-        pdf.set_font("Arial",size=12)
+        pdf.set_font("Arial", size=12)
 
         pdf.cell(200,10,"Laporan Monitoring Guru",ln=True)
 
         for i,row in data.iterrows():
 
-            text=f"{row['nama']} - {row['jam']} - {row['status']}"
+            text = f"{row['nama']} - {row['jam']} - {row['status']}"
 
             pdf.cell(200,10,text,ln=True)
 
