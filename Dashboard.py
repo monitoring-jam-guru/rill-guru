@@ -93,7 +93,12 @@ if len(cek_user) == 0:
     )
 
     conn.commit()
+cursor.execute(
+"UPDATE users SET username=?, password=? WHERE id=?",
+("operator_sman1","sman1",3)
+)
 
+conn.commit()
 guru = pd.read_sql("SELECT * FROM guru", conn)
 jadwal = pd.read_sql("SELECT * FROM jadwal", conn)
 aktivitas = pd.read_sql("SELECT * FROM aktivitas", conn)
