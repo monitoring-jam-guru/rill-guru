@@ -269,7 +269,9 @@ elif menu == "Upload Foto Mengajar":
             st.error("Silakan upload foto")
             st.stop()
 
-        waktu = datetime.now()
+        from datetime import datetime, timedelta
+
+        waktu = datetime.utcnow() + timedelta(hours=7)
 
         tanggal = waktu.strftime("%Y-%m-%d")
         jam = waktu.strftime("%H:%M:%S")
