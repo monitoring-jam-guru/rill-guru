@@ -296,18 +296,21 @@ elif menu == "Upload Foto Mengajar":
 
         status = "Tidak Sesuai"
         
-        jam_upload = datetime.strptime(jam,"%H:%M:%S")
+        if len(jadwal_guru) > 0:
         
-        for i,row in jadwal_guru.iterrows():
+            jam_upload = datetime.strptime(jam,"%H:%M:%S")
         
-            mulai = datetime.strptime(row["jam_mulai"],"%H:%M:%S")
-            selesai = datetime.strptime(row["jam_selesai"],"%H:%M:%S")
+            for i,row in jadwal_guru.iterrows():
         
-            # toleransi 10 menit
-            selesai_toleransi = selesai + timedelta(minutes=10)
+                mulai = datetime.strptime(row["jam_mulai"],"%H:%M:%S")
+                selesai = datetime.strptime(row["jam_selesai"],"%H:%M:%S")
         
-            if mulai <= jam_upload <= selesai_toleransi:
-                status = "Sesuai"
+                # toleransi 10 menit
+                selesai_toleransi = selesai + timedelta(minutes=10)
+        
+                if mulai <= jam_upload <= selesai_toleransi:
+                    status = "Sesuai"
+                    break
 
         if not os.path.exists("uploads"):
             os.makedirs("uploads")
