@@ -7,7 +7,6 @@ from PIL import Image, ImageDraw
 from fpdf import FPDF
 import folium
 from streamlit_folium import st_folium
-import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="DIMORA-SU", layout="wide")
 
