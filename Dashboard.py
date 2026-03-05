@@ -51,33 +51,176 @@ status TEXT,
 foto TEXT
 )
 """)
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+username TEXT,
+password TEXT,
+role TEXT,
+sekolah TEXT
+)
+""")
+conn.commit()
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+username TEXT,
+password TEXT,
+role TEXT,
+sekolah TEXT
+)
+""")
 
 conn.commit()
+
+# =========================
+# USER DEFAULT
+# =========================
+
+cursor.execute("SELECT * FROM users")
+cek_user = cursor.fetchall()
+
+if len(cek_user) == 0:
+
+    cursor.execute(
+    "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
+    ("admin","admin123","operator_dinas","-")
+    )
+
+    cursor.execute(
+    "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
+    ("kabid","kabid123","kabid","-")
+    )
+
+    conn.commit()
 
 guru = pd.read_sql("SELECT * FROM guru", conn)
 jadwal = pd.read_sql("SELECT * FROM jadwal", conn)
 aktivitas = pd.read_sql("SELECT * FROM aktivitas", conn)
+# =========================
+# LOGIN SYSTEM
+# =========================
 
+if "login" not in st.session_state:
+    st.session_state.login = False
+
+if st.session_state.login == False:
+
+    st.title("Login DIMORA-SU")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+
+        user = pd.read_sql(
+        "SELECT * FROM users WHERE username=? AND password=?",
+        conn,
+        params=(username,password)
+        )
+
+        if len(user) > 0:
+
+            st.session_state.login = True
+            st.session_state.username = user.iloc[0]["username"]
+            st.session_state.role = user.iloc[0]["role"]
+            st.session_state.sekolah = user.iloc[0]["sekolah"]
+
+            st.rerun()
+
+        else:
+            st.error("Username atau Password salah")
+
+    st.stop()
 # =========================
 # SIDEBAR MENU
 # =========================
 
 st.sidebar.title("DIMORA-SU")
 
-menu = st.sidebar.selectbox(
-"Menu Sistem",
-[
-"Dashboard",
-"Tambah Guru",
-"Tambah Jadwal",
-"Edit / Hapus Jadwal",
-"Upload Foto Mengajar",
-"Monitoring Hari Ini",
-"Peta Sekolah",
-"Laporan Kadis"
-]
-)
+role = st.session_state.role
 
+if role == "operator_dinas":
+
+    menu = st.sidebar.selectbox(
+    "Menu Sistem",
+    [
+    "Dashboard",
+    "Tambah Guru",
+    "Tambah Jadwal",
+    "Edit / Hapus Jadwal",
+    "Upload Foto Mengajar",
+    "Monitoring Hari Ini",
+    "Peta Sekolah",
+    "Laporan Kadis",
+    "Manajemen User"
+    ]
+    )
+
+elif role == "operator_sekolah":
+
+    menu = st.sidebar.selectbox(
+    "Menu Sistem",
+    [
+    "Dashboard",
+    "Tambah Guru",
+    "Tambah Jadwal",
+    "Upload Foto Mengajar",
+    "Monitoring Hari Ini",
+    "Export Excel"
+    ]
+    )
+
+elif role == "kabid":
+
+    menu = st.sidebar.selectbox(
+    "Menu Sistem",
+    [
+    "Dashboard",
+    "Monitoring Hari Ini",
+    "Peta Sekolah",
+    "Laporan Kadis"
+    ]
+    )
+st.sidebar.write("Login sebagai")
+st.sidebar.success(st.session_state.username)
+st.sidebar.caption(st.session_state.role)
+
+if st.sidebar.button("Logout"):
+    st.session_state.login = False
+    st.rerun()
+elif menu == "Export Excel":
+
+    st.title("Export Data Sekolah")
+
+    sekolah_user = st.session_state.sekolah
+
+    data_guru = pd.read_sql(
+    "SELECT * FROM guru WHERE sekolah=?",
+    conn,
+    params=(sekolah_user,)
+    )
+
+    data_jadwal = pd.read_sql(
+    "SELECT * FROM jadwal WHERE sekolah=?",
+    conn,
+    params=(sekolah_user,)
+    )
+
+    file = "data_sekolah.xlsx"
+
+    with pd.ExcelWriter(file) as writer:
+
+        data_guru.to_excel(writer, sheet_name="Guru", index=False)
+        data_jadwal.to_excel(writer, sheet_name="Jadwal", index=False)
+
+    with open(file,"rb") as f:
+
+        st.download_button(
+        "Download Excel",
+        f,
+        file_name="data_sekolah.xlsx"
+        )
 # =========================
 # WATERMARK FOTO
 # =========================
@@ -389,6 +532,34 @@ elif menu == "Monitoring Hari Ini":
                 st.error(
                 f"🔴 {row['nama']} - {row['jam']}"
                 )
+elif menu == "Manajemen User":
+
+    st.title("Manajemen User")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password")
+
+    role = st.selectbox(
+    "Role",
+    ["operator_dinas","operator_sekolah","kabid"]
+    )
+
+    sekolah = st.text_input("Sekolah")
+
+    if st.button("Tambah User"):
+
+        cursor.execute(
+        "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
+        (username,password,role,sekolah)
+        )
+
+        conn.commit()
+
+        st.success("User berhasil ditambahkan")
+
+    st.subheader("Daftar User")
+
+    st.dataframe(pd.read_sql("SELECT * FROM users", conn))
 # =========================
 # PETA SEKOLAH
 # =========================
