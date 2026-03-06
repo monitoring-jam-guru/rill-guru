@@ -553,7 +553,7 @@ elif menu == "Upload Foto Mengajar":
             # =========================
             # SIMPAN DATABASE
             # =========================
-
+            
             cursor.execute(
             """
             INSERT INTO aktivitas
@@ -570,20 +570,10 @@ elif menu == "Upload Foto Mengajar":
             status,
             filename
             )
-            (
-            nik,
-            nama,
-            tanggal_str,
-            jam,
-            st.session_state.kelas_aktif,
-            "Masuk Kelas",
-            status,
-            filename
             )
-            )
-
+            
             conn.commit()
-
+            
             st.success(f"Absensi berhasil - Status : {status}")
 
 # ==============================
