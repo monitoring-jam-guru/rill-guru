@@ -86,12 +86,12 @@ if len(cek_user) == 0:
     # OPERATOR SEKOLAH
     cursor.execute(
     "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
-    ("operator_sman1","12345","operator_sekolah","SMAN 1 Medan")
+    ("Operator_sman1","SMan1","operator_sekolah","SMAN 1 Medan")
     )
 
     cursor.execute(
     "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
-    ("operator_sman2","12345","operator_sekolah","SMAN 2 Medan")
+    ("Operator_sman2","Sman2","operator_sekolah","SMAN 2 Medan")
     )
 
     conn.commit()
