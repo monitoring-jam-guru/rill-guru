@@ -1,3 +1,4 @@
+from PIL import ImageFont
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 import streamlit as st
@@ -224,30 +225,52 @@ aktivitas = pd.read_sql("SELECT * FROM aktivitas", conn)
 # WATERMARK FOTO
 # ==============================
 
-def watermark(path,text):
+def watermark(path, text):
 
     img = Image.open(path)
+
     draw = ImageDraw.Draw(img)
-    draw.text((10,10), text, (255,0,0))
+
+    draw.text((10,10), text, fill=(255,0,0))
+
     img.save(path)
+if not os.path.exists("uploads"):
+    os.makedirs("uploads")
+
 def upload_drive(path):
 
-    gauth = GoogleAuth()
+    try:
 
-    gauth.LocalWebserverAuth()
+        gauth = GoogleAuth()
 
-    drive = GoogleDrive(gauth)
+        gauth.LoadCredentialsFile("credentials.json")
 
-    file_drive = drive.CreateFile(
+        if gauth.credentials is None:
+            gauth.LocalWebserverAuth()
+
+        elif gauth.access_token_expired:
+            gauth.Refresh()
+
+        else:
+            gauth.Authorize()
+
+        gauth.SaveCredentialsFile("credentials.json")
+
+        drive = GoogleDrive(gauth)
+
+        file_drive = drive.CreateFile(
         {"title": os.path.basename(path)}
-    )
+        )
 
-    with open(path,"wb") as f:
-        f.write(foto.getbuffer())
+        file_drive.SetContentFile(path)
 
-    watermark(path,f"{nama} {tanggal_str} {jam}")
-    
-    upload_drive(path)
+        file_drive.Upload()
+
+        return "Upload berhasil"
+
+    except Exception as e:
+
+        return str(e)
 
 # ==============================
 # DASHBOARD
@@ -582,14 +605,16 @@ elif menu == "Upload Foto Mengajar":
             mulai = st.session_state.jam_mulai.replace(".",":")
             selesai = st.session_state.jam_selesai.replace(".",":")
 
-            mulai = datetime.strptime(mulai,"%H:%M:%S")
-            selesai = datetime.strptime(selesai,"%H:%M:%S")
+            mulai = datetime.strptime(mulai,"%H:%M:%S").time()
+            selesai = datetime.strptime(selesai,"%H:%M:%S").time()
+            
+            jam_upload = datetime.strptime(jam,"%H:%M:%S").time()
 
             selesai = selesai + timedelta(minutes=15)
 
             status = "Tidak Sesuai"
 
-            if mulai <= jam_upload <= selesai:
+            if mulai <= jam_upload <= (datetime.combine(datetime.today(), selesai) + timedelta(minutes=15)).time():
                 status = "Sesuai"
 
             # =========================
@@ -605,9 +630,15 @@ elif menu == "Upload Foto Mengajar":
 
             with open(path,"wb") as f:
                 f.write(foto.getbuffer())
-
-            watermark(path,f"{nama} {tanggal_str} {jam}")
-            upload_drive(path)
+            
+            watermark(
+                path,
+                f"{nama} {st.session_state.kelas_aktif} {tanggal_str} {jam}"
+            )
+            
+            hasil_upload = upload_drive(path)
+            
+            st.info(hasil_upload)
 
             # =========================
             # SIMPAN DATABASE
