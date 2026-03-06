@@ -398,8 +398,8 @@ elif menu == "Perbaiki Jadwal Guru":
 
         hari = col1.selectbox(
             "Hari",
-            ["senin","selasa","rabu","kamis","jumat"],
-            index=["senin","selasa","rabu","kamis","jumat"].index(row["hari"]),
+            ["Senin","Selasa","Rabu","Kamis","Jumat"],
+            index=["Senin","Selasa","Rabu","Kamis","Jumat"].index(row["hari"]),
             key=f"h{i}"
         )
 
