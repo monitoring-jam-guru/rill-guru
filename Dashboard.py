@@ -15,6 +15,7 @@ st.set_page_config(page_title="DIMORA-SU", layout="wide")
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
+# TABEL GURU
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS guru(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,7 +26,9 @@ mapel TEXT,
 lat REAL,
 lon REAL
 )
+""")
 
+# TABEL JADWAL
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS jadwal(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,6 +41,7 @@ jam_selesai TEXT
 )
 """)
 
+# TABEL AKTIVITAS
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS aktivitas(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,10 +54,11 @@ foto TEXT
 )
 """)
 
+# TABEL USERS
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
-username TEXT,
+username TEXT UNIQUE,
 password TEXT,
 role TEXT,
 sekolah TEXT
