@@ -66,6 +66,19 @@ sekolah TEXT
 """)
 
 conn.commit()
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS aktivitas(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+nik TEXT,
+nama TEXT,
+tanggal TEXT,
+jam TEXT,
+kelas TEXT,
+jenis TEXT,
+status TEXT,
+foto TEXT
+)
+""")
 
 # ==============================
 # USER DEFAULT
@@ -323,97 +336,131 @@ elif menu == "Import Excel":
 
             st.error("Terjadi kesalahan saat membaca Excel")
             st.write(e)
-# ==============================
-# UPLOAD FOTO (GURU)
-# ==============================
+# =========================
+# UPLOAD FOTO MENGAJAR
+# =========================
 
 elif menu == "Upload Foto Mengajar":
 
     st.title("Upload Bukti Mengajar")
 
-    nama = st.session_state.username
+    nik = st.session_state.username
 
-    jenis = st.selectbox(
-    "Jenis Aktivitas",
-    ["Masuk Kelas","Keluar Kelas"]
+    # ambil data guru
+    data_guru = pd.read_sql(
+        "SELECT * FROM guru WHERE nik=?",
+        conn,
+        params=(nik,)
     )
 
-    foto = st.camera_input("Ambil Foto dari Kamera")
+    if len(data_guru) == 0:
+        st.error("Data guru tidak ditemukan")
+        st.stop()
+
+    nama = data_guru.iloc[0]["nama"]
+
+    st.success(f"Nama : {nama}")
+    st.info(f"NIK : {nik}")
+
+    tanggal = st.date_input("Pilih Tanggal", datetime.now())
+
+    hari_inggris = tanggal.strftime("%A")
+
+    hari_map = {
+    "Monday":"Senin",
+    "Tuesday":"Selasa",
+    "Wednesday":"Rabu",
+    "Thursday":"Kamis",
+    "Friday":"Jumat"
+    }
+
+    hari = hari_map.get(hari_inggris)
+
+    # ambil jadwal guru hari ini
+    jadwal_guru = pd.read_sql(
+        "SELECT * FROM jadwal WHERE nama=?",
+        conn,
+        params=(nama,)
+    )
+
+    jadwal_guru["hari"] = jadwal_guru["hari"].str.lower()
+
+    jadwal_hari_ini = jadwal_guru[jadwal_guru["hari"] == hari]
+
+    if len(jadwal_hari_ini) == 0:
+
+        st.warning("Tidak ada jadwal mengajar hari ini")
+        st.stop()
+
+    kelas = st.selectbox(
+        "Pilih Kelas",
+        jadwal_hari_ini["kelas"]
+    )
+
+    jenis = st.selectbox(
+        "Jenis Aktivitas",
+        ["Masuk Kelas","Keluar Kelas"]
+    )
+
+    foto = st.camera_input("Ambil Foto")
 
     if st.button("Upload"):
 
         if foto is None:
-            st.error("Ambil foto dulu")
+            st.error("Ambil foto terlebih dahulu")
             st.stop()
 
         waktu = datetime.utcnow() + timedelta(hours=7)
 
-        tanggal = waktu.strftime("%Y-%m-%d")
+        tanggal_str = waktu.strftime("%Y-%m-%d")
         jam = waktu.strftime("%H:%M:%S")
 
-        hari = waktu.strftime("%A")
-
-        hari_map={
-        "Monday":"Senin",
-        "Tuesday":"Selasa",
-        "Wednesday":"Rabu",
-        "Thursday":"Kamis",
-        "Friday":"Jumat"
-        }
-
-        hari=hari_map.get(hari,hari)
-
-        jadwal_guru = pd.read_sql(
-        "SELECT * FROM jadwal WHERE nama=?",
-        conn,
-        params=(nama,)
-        )
-        
-        # samakan format hari
-        jadwal_guru["hari"] = jadwal_guru["hari"].str.lower().str.strip()
-        hari = hari.lower()
-        
-        jadwal_guru = jadwal_guru[jadwal_guru["hari"] == hari]
-        
-        status = "Tidak Sesuai"
-        
         jam_upload = datetime.strptime(jam,"%H:%M:%S")
-        
-        for i,row in jadwal_guru.iterrows():
-        
-            # ubah format excel 10.20.00 menjadi 10:20:00
+
+        # ambil jadwal kelas yang dipilih
+        jadwal_kelas = jadwal_hari_ini[
+            jadwal_hari_ini["kelas"] == kelas
+        ]
+
+        status = "Tidak Sesuai"
+
+        for i,row in jadwal_kelas.iterrows():
+
             mulai = str(row["jam_mulai"]).replace(".",":")
             selesai = str(row["jam_selesai"]).replace(".",":")
-        
+
             mulai = datetime.strptime(mulai,"%H:%M:%S")
             selesai = datetime.strptime(selesai,"%H:%M:%S")
-        
-            # toleransi 15 menit
+
             selesai = selesai + timedelta(minutes=15)
-        
+
             if mulai <= jam_upload <= selesai:
                 status = "Sesuai"
-                break
 
         if not os.path.exists("uploads"):
             os.makedirs("uploads")
 
-        filename=f"{nama}_{tanggal}_{jam}.jpg"
+        filename=f"{nik}_{tanggal_str}_{jam}.jpg"
+
         path=os.path.join("uploads",filename)
 
         with open(path,"wb") as f:
             f.write(foto.getbuffer())
 
-        watermark(path,f"{nama} {tanggal} {jam}")
+        watermark(path,f"{nama} {tanggal_str} {jam}")
 
         cursor.execute(
-        "INSERT INTO aktivitas (nama,tanggal,jam,jenis,status,foto) VALUES (?,?,?,?,?,?)",
-        (nama,tanggal,jam,jenis,status,filename)
+        """
+        INSERT INTO aktivitas
+        (nik,nama,tanggal,jam,kelas,jenis,status,foto)
+        VALUES (?,?,?,?,?,?,?,?)
+        """,
+        (nik,nama,tanggal_str,jam,kelas,jenis,status,filename)
         )
 
         conn.commit()
 
-        st.success("Foto berhasil diupload")
+        st.success(f"Upload berhasil - Status : {status}")
 
 # ==============================
 # RIWAYAT GURU
