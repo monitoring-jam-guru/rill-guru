@@ -464,7 +464,15 @@ elif menu == "Upload Foto Mengajar":
     params=(nik,hari)
     )
 
-    jadwal["hari"] = jadwal["hari"].str.lower().str.strip()
+    # normalisasi kolom
+    jadwal.columns = jadwal.columns.str.lower().str.strip()
+    
+    # cek apakah kolom hari ada
+    if "hari" in jadwal.columns:
+        jadwal["hari"] = jadwal["hari"].astype(str).str.lower().str.strip()
+    else:
+        st.error("Kolom 'hari' tidak ditemukan pada data jadwal")
+        st.stop()
 
     jadwal_hari_ini = jadwal[jadwal["hari"] == hari]
 
