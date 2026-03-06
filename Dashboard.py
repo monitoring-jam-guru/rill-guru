@@ -297,10 +297,7 @@ elif menu == "Import Excel":
                 for i,row in df_jadwal.iterrows():
 
                     cursor.execute(
-                    """
-                    INSERT INTO jadwal (nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
-                    VALUES (?,?,?,?,?,?)
-                    """,
+                    "INSERT INTO jadwal (nama,sekolah,hari,kelas,jam_mulai,jam_selesai) VALUES (?,?,?,?,?,?)",
                     (
                     str(row.get("nama","")),
                     str(row.get("sekolah","")),
