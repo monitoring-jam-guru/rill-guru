@@ -587,6 +587,12 @@ elif menu == "Upload Foto Mengajar":
             f"Selfie Kelas {st.session_state.kelas_aktif}"
         )
     
+        # pilih jenis absensi
+        jenis_absen = st.radio(
+            "Jenis Absensi",
+            ["Masuk Kelas", "Selesai Kelas"]
+        )
+    
         foto = st.camera_input("Ambil Foto")
     
         if st.button("Upload Foto", key="upload_foto"):
@@ -600,20 +606,38 @@ elif menu == "Upload Foto Mengajar":
             tanggal_str = waktu.strftime("%Y-%m-%d")
             jam = waktu.strftime("%H:%M:%S")
     
+            # ubah jam upload
             jam_upload = datetime.strptime(jam, "%H:%M:%S")
     
+            # ambil jadwal dari session
             mulai = st.session_state.jam_mulai.replace(".", ":")
             selesai = st.session_state.jam_selesai.replace(".", ":")
     
+            # ubah ke datetime
             mulai_dt = datetime.strptime(mulai, "%H:%M:%S")
             selesai_dt = datetime.strptime(selesai, "%H:%M:%S")
     
-            # toleransi
-            mulai_toleransi = mulai_dt + timedelta(minutes=15)
-            selesai_toleransi = selesai_dt + timedelta(minutes=15)
-    
-            jenis_absen = ""
             status = "Tidak Sesuai"
+
+        # =========================
+        # CEK ABSENSI MASUK KELAS
+        # =========================
+        if jenis_absen == "Masuk Kelas":
+
+            mulai_toleransi = mulai_dt + timedelta(minutes=15)
+
+            if mulai_dt <= jam_upload <= mulai_toleransi:
+                status = "Sesuai"
+
+        # =========================
+        # CEK ABSENSI SELESAI KELAS
+        # =========================
+        elif jenis_absen == "Selesai Kelas":
+
+            selesai_toleransi = selesai_dt + timedelta(minutes=15)
+
+            if selesai_dt <= jam_upload <= selesai_toleransi:
+                status = "Sesuai"
 
         # =========================
         # ABSENSI MASUK
