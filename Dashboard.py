@@ -368,22 +368,32 @@ elif menu == "Upload Foto Mengajar":
         conn,
         params=(nama,)
         )
-
-        jadwal_guru = jadwal_guru[jadwal_guru["hari"]==hari]
-
-        status="Tidak Sesuai"
-
-        jam_upload=datetime.strptime(jam,"%H:%M:%S")
-
+        
+        # samakan format hari
+        jadwal_guru["hari"] = jadwal_guru["hari"].str.lower().str.strip()
+        hari = hari.lower()
+        
+        jadwal_guru = jadwal_guru[jadwal_guru["hari"] == hari]
+        
+        status = "Tidak Sesuai"
+        
+        jam_upload = datetime.strptime(jam,"%H:%M:%S")
+        
         for i,row in jadwal_guru.iterrows():
-
-            mulai=datetime.strptime(row["jam_mulai"],"%H:%M:%S")
-            selesai=datetime.strptime(row["jam_selesai"],"%H:%M:%S")
-
-            selesai=selesai+timedelta(minutes=15)
-
-            if mulai<=jam_upload<=selesai:
-                status="Sesuai"
+        
+            # ubah format excel 10.20.00 menjadi 10:20:00
+            mulai = str(row["jam_mulai"]).replace(".",":")
+            selesai = str(row["jam_selesai"]).replace(".",":")
+        
+            mulai = datetime.strptime(mulai,"%H:%M:%S")
+            selesai = datetime.strptime(selesai,"%H:%M:%S")
+        
+            # toleransi 15 menit
+            selesai = selesai + timedelta(minutes=15)
+        
+            if mulai <= jam_upload <= selesai:
+                status = "Sesuai"
+                break
 
         if not os.path.exists("uploads"):
             os.makedirs("uploads")
