@@ -604,9 +604,18 @@ elif menu == "Upload Foto Mengajar":
 
             mulai = st.session_state.jam_mulai.replace(".",":")
             selesai = st.session_state.jam_selesai.replace(".",":")
-
-            mulai = datetime.strptime(mulai,"%H:%M:%S").time()
-            selesai = datetime.strptime(selesai,"%H:%M:%S").time()
+            
+            mulai_dt = datetime.strptime(mulai,"%H:%M:%S")
+            selesai_dt = datetime.strptime(selesai,"%H:%M:%S")
+            
+            selesai_dt = selesai_dt + timedelta(minutes=15)
+            
+            jam_upload = datetime.strptime(jam,"%H:%M:%S")
+            
+            status = "Tidak Sesuai"
+            
+            if mulai_dt <= jam_upload <= selesai_dt:
+                status = "Sesuai"
             
             jam_upload = datetime.strptime(jam,"%H:%M:%S").time()
 
