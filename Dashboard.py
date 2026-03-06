@@ -346,7 +346,10 @@ elif menu == "Upload Foto Mengajar":
 
     nik = st.session_state.username
 
-    # ambil data guru
+    # =========================
+    # AMBIL DATA GURU
+    # =========================
+
     data_guru = pd.read_sql(
         "SELECT * FROM guru WHERE nik=?",
         conn,
@@ -380,6 +383,11 @@ elif menu == "Upload Foto Mengajar":
 
     hari = hari_map.get(hari_inggris)
 
+    if hari is None:
+
+        st.warning("Hari ini bukan jadwal sekolah")
+        st.stop()
+
     st.write(f"Hari Mengajar : **{hari.capitalize()}**")
 
     # =========================
@@ -403,16 +411,22 @@ elif menu == "Upload Foto Mengajar":
 
     st.subheader("Jadwal Mengajar Hari Ini")
 
-    # tampilkan jadwal
+    # =========================
+    # TAMPILKAN JADWAL
+    # =========================
+
     for i,row in jadwal_hari_ini.iterrows():
 
         kelas = row["kelas"]
         mulai = str(row["jam_mulai"])
         selesai = str(row["jam_selesai"])
 
-        st.write(f"📚 {kelas}  |  {mulai} - {selesai}")
+        st.write(f"📚 {kelas} | {mulai} - {selesai}")
 
-        if st.button(f"Masuk Kelas {kelas}"):
+        if st.button(
+            f"Masuk Kelas {kelas}",
+            key=f"kelas_{i}"
+        ):
 
             st.session_state.kelas_aktif = kelas
             st.session_state.jam_mulai = mulai
@@ -424,11 +438,13 @@ elif menu == "Upload Foto Mengajar":
 
     if "kelas_aktif" in st.session_state:
 
-        st.subheader(f"Selfie Masuk Kelas {st.session_state.kelas_aktif}")
+        st.subheader(
+            f"Selfie Masuk Kelas {st.session_state.kelas_aktif}"
+        )
 
         foto = st.camera_input("Ambil Foto")
 
-        if st.button("Upload Foto"):
+        if st.button("Upload Foto",key="upload_foto"):
 
             if foto is None:
                 st.error("Silakan ambil foto terlebih dahulu")
@@ -454,6 +470,10 @@ elif menu == "Upload Foto Mengajar":
             if mulai <= jam_upload <= selesai:
                 status = "Sesuai"
 
+            # =========================
+            # SIMPAN FOTO
+            # =========================
+
             if not os.path.exists("uploads"):
                 os.makedirs("uploads")
 
@@ -465,6 +485,10 @@ elif menu == "Upload Foto Mengajar":
                 f.write(foto.getbuffer())
 
             watermark(path,f"{nama} {tanggal_str} {jam}")
+
+            # =========================
+            # SIMPAN DATABASE
+            # =========================
 
             cursor.execute(
             """
