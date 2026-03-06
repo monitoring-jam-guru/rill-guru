@@ -86,7 +86,7 @@ if len(cek_user) == 0:
     # OPERATOR SEKOLAH
     cursor.execute(
     "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
-    ("Operator_sman1","SMan1","operator_sekolah","SMAN 1 Medan")
+    ("Operator_sman1","Sman1","operator_sekolah","SMAN 1 Medan")
     )
 
     cursor.execute(
@@ -243,58 +243,77 @@ elif menu == "Import Excel":
 
     st.title("Import Data Guru & Jadwal")
 
-    st.info("Upload Excel dengan 2 Sheet : Guru dan Jadwal")
-
     file = st.file_uploader("Upload File Excel", type=["xlsx"])
 
     if file is not None:
 
-        df_guru = pd.read_excel(file, sheet_name="Guru")
-        df_jadwal = pd.read_excel(file, sheet_name="Jadwal")
+        try:
 
-        for i,row in df_guru.iterrows():
+            df_guru = pd.read_excel(file, sheet_name="Guru")
+            df_jadwal = pd.read_excel(file, sheet_name="Jadwal")
 
-            cursor.execute(
-            "INSERT INTO guru (nik,nama,sekolah,mapel,lat,lon) VALUES (?,?,?,?,?,?)",
-            (
-            row["nik"],
-            row["nama"],
-            row["sekolah"],
-            row["mapel"],
-            row["lat"],
-            row["lon"]
-            )
-            )
+            # normalisasi nama kolom
+            df_guru.columns = df_guru.columns.str.lower().str.strip()
+            df_jadwal.columns = df_jadwal.columns.str.lower().str.strip()
 
-            username=row["nik"]
-            password="12345"
+            st.write("Preview Data Guru")
+            st.dataframe(df_guru)
 
-            cursor.execute(
-            "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
-            (username,password,"guru",row["sekolah"])
-            )
+            st.write("Preview Data Jadwal")
+            st.dataframe(df_jadwal)
 
-        for i,row in df_jadwal.iterrows():
+            if st.button("Import Sekarang"):
 
-            cursor.execute(
-            """
-            INSERT INTO jadwal (nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
-            VALUES (?,?,?,?,?,?)
-            """,
-            (
-            row["nama"],
-            row["sekolah"],
-            row["hari"],
-            row["kelas"],
-            row["jam_mulai"],
-            row["jam_selesai"]
-            )
-            )
+                for i,row in df_guru.iterrows():
 
-        conn.commit()
+                    cursor.execute(
+                    "INSERT INTO guru (nik,nama,sekolah,mapel,lat,lon) VALUES (?,?,?,?,?,?)",
+                    (
+                    str(row.get("nik","")),
+                    str(row.get("nama","")),
+                    str(row.get("sekolah","")),
+                    str(row.get("mapel","")),
+                    float(row.get("lat",0)),
+                    float(row.get("lon",0))
+                    )
+                    )
 
-        st.success("Data berhasil diimport")
+                    # buat akun guru otomatis
+                    cursor.execute(
+                    "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
+                    (
+                    str(row.get("nik","")),
+                    "12345",
+                    "guru",
+                    str(row.get("sekolah",""))
+                    )
+                    )
 
+                for i,row in df_jadwal.iterrows():
+
+                    cursor.execute(
+                    """
+                    INSERT INTO jadwal (nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
+                    VALUES (?,?,?,?,?,?)
+                    """,
+                    (
+                    str(row.get("nama","")),
+                    str(row.get("sekolah","")),
+                    str(row.get("hari","")),
+                    str(row.get("kelas","")),
+                    str(row.get("jam_mulai","")),
+                    str(row.get("jam_selesai",""))
+                    )
+                    )
+
+                conn.commit()
+
+                st.success("Import data berhasil")
+
+        except Exception as e:
+
+            st.error("Terjadi kesalahan saat membaca Excel")
+            st.write(e)
 # ==============================
 # UPLOAD FOTO (GURU)
 # ==============================
