@@ -32,12 +32,14 @@ lon REAL
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS jadwal(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
+nik TEXT,
 nama TEXT,
 sekolah TEXT,
 hari TEXT,
 kelas TEXT,
 jam_mulai TEXT,
-jam_selesai TEXT
+jam_selesai TEXT,
+UNIQUE(nik,hari,kelas,jam_mulai)
 )
 """)
 
@@ -266,7 +268,10 @@ elif menu == "Import Excel":
 
         try:
 
-            # baca excel
+            # ==========================
+            # BACA FILE EXCEL
+            # ==========================
+
             df_guru = pd.read_excel(file, sheet_name="Guru")
             df_jadwal = pd.read_excel(file, sheet_name="Jadwal")
 
@@ -286,7 +291,7 @@ elif menu == "Import Excel":
                 # IMPORT DATA GURU
                 # ==========================
 
-                for i, row in df_guru.iterrows():
+                for _, row in df_guru.iterrows():
 
                     nik = str(row.get("nik","")).strip()
                     nama = str(row.get("nama","")).strip()
@@ -296,16 +301,27 @@ elif menu == "Import Excel":
                     lat = float(row.get("lat",0))
                     lon = float(row.get("lon",0))
 
-                    # insert guru (tidak akan duplikat karena OR IGNORE)
+                    if nik == "":
+                        continue
+
+                    # insert guru
                     cursor.execute(
-                        "INSERT OR IGNORE INTO guru (nik,nama,sekolah,mapel,lat,lon) VALUES (?,?,?,?,?,?)",
-                        (nik,nama,sekolah,mapel,lat,lon)
+                    """
+                    INSERT OR REPLACE INTO guru
+                    (nik,nama,sekolah,mapel,lat,lon)
+                    VALUES (?,?,?,?,?,?)
+                    """,
+                    (nik,nama,sekolah,mapel,lat,lon)
                     )
 
                     # buat akun guru otomatis
                     cursor.execute(
-                        "INSERT OR IGNORE INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
-                        (nik,"12345","guru",sekolah)
+                    """
+                    INSERT OR IGNORE INTO users
+                    (username,password,role,sekolah)
+                    VALUES (?,?,?,?)
+                    """,
+                    (nik,"12345","guru",sekolah)
                     )
 
 
@@ -313,7 +329,7 @@ elif menu == "Import Excel":
                 # IMPORT DATA JADWAL
                 # ==========================
 
-                for i, row in df_jadwal.iterrows():
+                for _, row in df_jadwal.iterrows():
 
                     nama = str(row.get("nama","")).strip()
                     sekolah = str(row.get("sekolah","")).strip()
@@ -323,14 +339,58 @@ elif menu == "Import Excel":
                     jam_mulai = str(row.get("jam_mulai","")).replace(".",":")
                     jam_selesai = str(row.get("jam_selesai","")).replace(".",":")
 
-                    cursor.execute(
-                        "INSERT INTO jadwal (nama,sekolah,hari,kelas,jam_mulai,jam_selesai) VALUES (?,?,?,?,?,?)",
-                        (nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
-                    )
+                    # pastikan format HH:MM:SS
+                    if len(jam_mulai) == 5:
+                        jam_mulai += ":00"
+
+                    if len(jam_selesai) == 5:
+                        jam_selesai += ":00"
+
+                    # ambil nik dari tabel guru
+                    data = cursor.execute(
+                        "SELECT nik FROM guru WHERE nama=?",
+                        (nama,)
+                    ).fetchone()
+
+                    if data is None:
+                        continue
+
+                    nik = data[0]
+
+                    # cek apakah jadwal sudah ada
+                    cek = cursor.execute(
+                    """
+                    SELECT id FROM jadwal
+                    WHERE nik=? AND hari=? AND kelas=? AND jam_mulai=?
+                    """,
+                    (nik,hari,kelas,jam_mulai)
+                    ).fetchone()
+
+                    if cek is None:
+
+                        cursor.execute(
+                        """
+                        INSERT INTO jadwal
+                        (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
+                        VALUES (?,?,?,?,?,?,?)
+                        """,
+                        (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
+                        )
+
+                    else:
+
+                        cursor.execute(
+                        """
+                        UPDATE jadwal
+                        SET jam_selesai=?, sekolah=?
+                        WHERE id=?
+                        """,
+                        (jam_selesai,sekolah,cek[0])
+                        )
 
                 conn.commit()
 
-                st.success("Import data berhasil")
+                st.success("Import data berhasil dan jadwal diperbarui")
 
         except Exception as e:
 
@@ -395,9 +455,13 @@ elif menu == "Upload Foto Mengajar":
     # =========================
 
     jadwal = pd.read_sql(
-        "SELECT * FROM jadwal WHERE nama=?",
-        conn,
-        params=(nama,)
+    """
+    SELECT DISTINCT kelas,jam_mulai,jam_selesai
+    FROM jadwal
+    WHERE nik=? AND hari=?
+    """,
+    conn,
+    params=(nik,hari)
     )
 
     jadwal["hari"] = jadwal["hari"].str.lower().str.strip()
@@ -496,6 +560,17 @@ elif menu == "Upload Foto Mengajar":
             (nik,nama,tanggal,jam,kelas,jenis,status,foto)
             VALUES (?,?,?,?,?,?,?,?)
             """,
+            (
+            nik,
+            nama,
+            tanggal_str,
+            jam,
+            st.session_state.kelas_aktif,
+            "Masuk Kelas",
+            status,
+            filename
+            )
+            )
             (
             nik,
             nama,
