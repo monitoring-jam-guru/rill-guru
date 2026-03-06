@@ -5,3 +5,4 @@ pillow
 fpdf
 folium
 streamlit-folium
+pydrive2
