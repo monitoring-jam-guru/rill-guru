@@ -168,6 +168,7 @@ elif role == "operator_sekolah":
     [
     "Dashboard",
     "Import Excel",
+    "Perbaiki Jadwal Guru",
     "Monitoring Hari Ini"
     ]
     )
@@ -199,6 +200,7 @@ st.sidebar.success(st.session_state.username)
 if st.sidebar.button("Logout"):
     st.session_state.login=False
     st.rerun()
+
 
 # ==============================
 # LOAD DATA
@@ -312,7 +314,79 @@ elif menu == "Import Excel":
                     """,
                     (nik,"12345","guru",sekolah)
                     )
+            # ==============================
+# PERBAIKI JADWAL GURU
+# ==============================
 
+elif menu == "Perbaiki Jadwal Guru":
+
+    st.title("Perbaiki Jadwal Mengajar Guru")
+
+    data_jadwal = pd.read_sql(
+        "SELECT * FROM jadwal ORDER BY nama,hari,jam_mulai",
+        conn
+    )
+
+    if len(data_jadwal) == 0:
+        st.warning("Belum ada jadwal")
+        st.stop()
+
+    guru_list = data_jadwal["nama"].unique()
+
+    pilih_guru = st.selectbox("Pilih Guru", guru_list)
+
+    jadwal_guru = data_jadwal[data_jadwal["nama"] == pilih_guru]
+
+    for i,row in jadwal_guru.iterrows():
+
+        st.subheader(f"{row['nama']} - {row['kelas']}")
+
+        hari = st.selectbox(
+            "Hari",
+            ["senin","selasa","rabu","kamis","jumat"],
+            index=["senin","selasa","rabu","kamis","jumat"].index(row["hari"]),
+            key=f"hari{i}"
+        )
+
+        kelas = st.text_input(
+            "Kelas",
+            row["kelas"],
+            key=f"kelas{i}"
+        )
+
+        jam_mulai = st.text_input(
+            "Jam Mulai",
+            row["jam_mulai"],
+            key=f"mulai{i}"
+        )
+
+        jam_selesai = st.text_input(
+            "Jam Selesai",
+            row["jam_selesai"],
+            key=f"selesai{i}"
+        )
+
+        if st.button("Update Jadwal", key=f"update{i}"):
+
+            cursor.execute(
+            """
+            UPDATE jadwal
+            SET hari=?, kelas=?, jam_mulai=?, jam_selesai=?
+            WHERE id=?
+            """,
+            (
+            hari,
+            kelas,
+            jam_mulai,
+            jam_selesai,
+            row["id"]
+            )
+            )
+
+            conn.commit()
+
+            st.success("Jadwal berhasil diperbarui")
+            st.rerun()
 
                 # ==========================
                 # IMPORT DATA JADWAL
