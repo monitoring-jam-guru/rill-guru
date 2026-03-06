@@ -578,42 +578,42 @@ elif menu == "Upload Foto Mengajar":
             st.session_state.jam_selesai = selesai
 
     # =========================
-# SELFIE FOTO
-# =========================
-
-if "kelas_aktif" in st.session_state:
-
-    st.subheader(
-        f"Selfie Kelas {st.session_state.kelas_aktif}"
-    )
-
-    foto = st.camera_input("Ambil Foto")
-
-    if st.button("Upload Foto", key="upload_foto"):
-
-        if foto is None:
-            st.error("Silakan ambil foto terlebih dahulu")
-            st.stop()
-
-        waktu = datetime.utcnow() + timedelta(hours=7)
-
-        tanggal_str = waktu.strftime("%Y-%m-%d")
-        jam = waktu.strftime("%H:%M:%S")
-
-        jam_upload = datetime.strptime(jam, "%H:%M:%S")
-
-        mulai = st.session_state.jam_mulai.replace(".", ":")
-        selesai = st.session_state.jam_selesai.replace(".", ":")
-
-        mulai_dt = datetime.strptime(mulai, "%H:%M:%S")
-        selesai_dt = datetime.strptime(selesai, "%H:%M:%S")
-
-        # toleransi
-        mulai_toleransi = mulai_dt + timedelta(minutes=15)
-        selesai_toleransi = selesai_dt + timedelta(minutes=15)
-
-        jenis_absen = ""
-        status = "Tidak Sesuai"
+    # SELFIE FOTO
+    # =========================
+    
+    if "kelas_aktif" in st.session_state:
+    
+        st.subheader(
+            f"Selfie Kelas {st.session_state.kelas_aktif}"
+        )
+    
+        foto = st.camera_input("Ambil Foto")
+    
+        if st.button("Upload Foto", key="upload_foto"):
+    
+            if foto is None:
+                st.error("Silakan ambil foto terlebih dahulu")
+                st.stop()
+    
+            waktu = datetime.utcnow() + timedelta(hours=7)
+    
+            tanggal_str = waktu.strftime("%Y-%m-%d")
+            jam = waktu.strftime("%H:%M:%S")
+    
+            jam_upload = datetime.strptime(jam, "%H:%M:%S")
+    
+            mulai = st.session_state.jam_mulai.replace(".", ":")
+            selesai = st.session_state.jam_selesai.replace(".", ":")
+    
+            mulai_dt = datetime.strptime(mulai, "%H:%M:%S")
+            selesai_dt = datetime.strptime(selesai, "%H:%M:%S")
+    
+            # toleransi
+            mulai_toleransi = mulai_dt + timedelta(minutes=15)
+            selesai_toleransi = selesai_dt + timedelta(minutes=15)
+    
+            jenis_absen = ""
+            status = "Tidak Sesuai"
 
         # =========================
         # ABSENSI MASUK
