@@ -362,35 +362,53 @@ elif menu == "Upload Foto Mengajar":
     st.success(f"Nama : {nama}")
     st.info(f"NIK : {nik}")
 
-    tanggal = st.date_input("Pilih Tanggal", datetime.now())
+    # =========================
+    # PILIH TANGGAL
+    # =========================
+
+    tanggal = st.date_input("Pilih Tanggal Mengajar", datetime.now())
 
     hari_inggris = tanggal.strftime("%A")
 
     hari_map = {
-    "Monday":"Senin",
-    "Tuesday":"Selasa",
-    "Wednesday":"Rabu",
-    "Thursday":"Kamis",
-    "Friday":"Jumat"
+        "Monday":"Senin",
+        "Tuesday":"Selasa",
+        "Wednesday":"Rabu",
+        "Thursday":"Kamis",
+        "Friday":"Jumat",
+        "Saturday":"Sabtu"
     }
 
     hari = hari_map.get(hari_inggris)
 
-    # ambil jadwal guru hari ini
+    st.write(f"Hari : **{hari.capitalize()}**")
+
+    # =========================
+    # AMBIL JADWAL GURU
+    # =========================
+
     jadwal_guru = pd.read_sql(
         "SELECT * FROM jadwal WHERE nama=?",
         conn,
         params=(nama,)
     )
 
-    jadwal_guru["hari"] = jadwal_guru["hari"].str.lower()
+    jadwal_guru["hari"] = jadwal_guru["hari"].str.lower().str.strip()
 
     jadwal_hari_ini = jadwal_guru[jadwal_guru["hari"] == hari]
 
     if len(jadwal_hari_ini) == 0:
 
-        st.warning("Tidak ada jadwal mengajar hari ini")
+        st.warning("Tidak ada jadwal mengajar pada hari ini")
         st.stop()
+
+    st.subheader("Jadwal Mengajar Hari Ini")
+
+    st.dataframe(jadwal_hari_ini[["kelas","jam_mulai","jam_selesai"]])
+
+    # =========================
+    # PILIH KELAS
+    # =========================
 
     kelas = st.selectbox(
         "Pilih Kelas",
@@ -404,7 +422,7 @@ elif menu == "Upload Foto Mengajar":
 
     foto = st.camera_input("Ambil Foto")
 
-    if st.button("Upload"):
+    if st.button("Upload Bukti Mengajar"):
 
         if foto is None:
             st.error("Ambil foto terlebih dahulu")
@@ -417,7 +435,7 @@ elif menu == "Upload Foto Mengajar":
 
         jam_upload = datetime.strptime(jam,"%H:%M:%S")
 
-        # ambil jadwal kelas yang dipilih
+        # ambil jadwal kelas
         jadwal_kelas = jadwal_hari_ini[
             jadwal_hari_ini["kelas"] == kelas
         ]
