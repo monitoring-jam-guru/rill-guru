@@ -423,11 +423,11 @@ elif menu == "Upload Foto Mengajar":
     hari_inggris = tanggal.strftime("%A")
 
     hari_map = {
-        "Monday":"senin",
-        "Tuesday":"selasa",
-        "Wednesday":"rabu",
-        "Thursday":"kamis",
-        "Friday":"jumat"
+        "Monday":"Senin",
+        "Tuesday":"Selasa",
+        "Wednesday":"Rabu",
+        "Thursday":"Kamis",
+        "Friday":"Jumat"
     }
 
     hari = hari_map.get(hari_inggris)
