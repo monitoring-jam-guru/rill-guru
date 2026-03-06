@@ -243,7 +243,7 @@ def upload_drive(path):
     )
 
     with open(path,"wb") as f:
-    f.write(foto.getbuffer())
+        f.write(foto.getbuffer())
 
     watermark(path,f"{nama} {tanggal_str} {jam}")
     
