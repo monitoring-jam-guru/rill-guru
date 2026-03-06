@@ -467,16 +467,16 @@ elif menu == "Upload Foto Mengajar":
 
     for i,row in jadwal_hari_ini.iterrows():
 
-    kelas = row["kelas"]
-    mulai = str(row["jam_mulai"])
-    selesai = str(row["jam_selesai"])
-
-    st.write(f"📚 {kelas} | {mulai} - {selesai}")
-
-    if st.button(
-        f"Masuk Kelas {kelas}",
-        key=f"kelas_{i}"
-    ):
+        kelas = row["kelas"]
+        mulai = str(row["jam_mulai"])
+        selesai = str(row["jam_selesai"])
+    
+        st.write(f"📚 {kelas} | {mulai} - {selesai}")
+    
+        if st.button(
+            f"Masuk Kelas {kelas}",
+            key=f"kelas_{i}"
+        ):
 
         st.session_state.kelas_aktif = kelas
         st.session_state.jam_mulai = mulai
