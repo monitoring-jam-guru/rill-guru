@@ -583,11 +583,8 @@ elif menu == "Upload Foto Mengajar":
     
     if "kelas_aktif" in st.session_state:
     
-        st.subheader(
-            f"Selfie Kelas {st.session_state.kelas_aktif}"
-        )
+        st.subheader(f"Selfie Kelas {st.session_state.kelas_aktif}")
     
-        # pilih jenis absensi
         jenis_absen = st.radio(
             "Jenis Absensi",
             ["Masuk Kelas", "Selesai Kelas"]
@@ -606,96 +603,66 @@ elif menu == "Upload Foto Mengajar":
             tanggal_str = waktu.strftime("%Y-%m-%d")
             jam = waktu.strftime("%H:%M:%S")
     
-            # ubah jam upload
             jam_upload = datetime.strptime(jam, "%H:%M:%S")
     
-            # ambil jadwal dari session
+            # ambil jadwal
             mulai = st.session_state.jam_mulai.replace(".", ":")
             selesai = st.session_state.jam_selesai.replace(".", ":")
     
-            # ubah ke datetime
             mulai_dt = datetime.strptime(mulai, "%H:%M:%S")
             selesai_dt = datetime.strptime(selesai, "%H:%M:%S")
     
             status = "Tidak Sesuai"
-
-        # =========================
-        # CEK ABSENSI MASUK KELAS
-        # =========================
-        if jenis_absen == "Masuk Kelas":
-
-            mulai_toleransi = mulai_dt + timedelta(minutes=15)
-
-            if mulai_dt <= jam_upload <= mulai_toleransi:
-                status = "Sesuai"
-
-        # =========================
-        # CEK ABSENSI SELESAI KELAS
-        # =========================
-        elif jenis_absen == "Selesai Kelas":
-
-            selesai_toleransi = selesai_dt + timedelta(minutes=15)
-
-            if selesai_dt <= jam_upload <= selesai_toleransi:
-                status = "Sesuai"
-
-        # =========================
-        # ABSENSI MASUK
-        # =========================
-        if jam_upload <= mulai_toleransi:
-
-            jenis_absen = "Masuk Kelas"
-
-            if mulai_dt <= jam_upload <= mulai_toleransi:
-                status = "Sesuai"
-
-        # =========================
-        # ABSENSI SELESAI
-        # =========================
-        elif jam_upload >= selesai_dt:
-
-            jenis_absen = "Selesai Kelas"
-
-            if selesai_dt <= jam_upload <= selesai_toleransi:
-                status = "Sesuai"
-
-        else:
-
-            jenis_absen = "Di Luar Jadwal"
-
+    
+            # =========================
+            # CEK MASUK KELAS
+            # =========================
+    
+            if jenis_absen == "Masuk Kelas":
+    
+                mulai_toleransi = mulai_dt + timedelta(minutes=15)
+    
+                if mulai_dt <= jam_upload <= mulai_toleransi:
+                    status = "Sesuai"
+    
+            # =========================
+            # CEK SELESAI KELAS
+            # =========================
+    
+            elif jenis_absen == "Selesai Kelas":
+    
+                selesai_toleransi = selesai_dt + timedelta(minutes=15)
+    
+                if selesai_dt <= jam_upload <= selesai_toleransi:
+                    status = "Sesuai"
+    
             # =========================
             # SIMPAN FOTO
             # =========================
-
+    
             if not os.path.exists("uploads"):
                 os.makedirs("uploads")
-
-            filename=f"{nik}_{tanggal_str}_{jam}.jpg"
-
-            path=os.path.join("uploads",filename)
-
-            with open(path,"wb") as f:
+    
+            filename = f"{nik}_{tanggal_str}_{jam.replace(':','-')}.jpg"
+    
+            path = os.path.join("uploads", filename)
+    
+            with open(path, "wb") as f:
                 f.write(foto.getbuffer())
-            
+    
             watermark(
                 path,
                 f"{nama} {st.session_state.kelas_aktif} {tanggal_str} {jam}"
             )
-            
+    
             hasil_upload = upload_drive(path)
-            
+    
             st.info(hasil_upload)
-
+    
             # =========================
             # SIMPAN DATABASE
             # =========================
-            
-            kelas = st.session_state.get("kelas_aktif","")
-
-            if kelas == "":
-                st.error("Kelas belum dipilih")
-                st.stop()
-            
+    
             cursor.execute(
             """
             INSERT INTO aktivitas
@@ -703,20 +670,20 @@ elif menu == "Upload Foto Mengajar":
             VALUES (?,?,?,?,?,?,?,?)
             """,
             (
-            str(nik),
-            str(nama),
-            str(tanggal_str),
-            str(jam),
-            str(kelas),
-            "Masuk Kelas",
-            str(status),
-            str(filename)
+            nik,
+            nama,
+            tanggal_str,
+            jam,
+            st.session_state.kelas_aktif,
+            jenis_absen,
+            status,
+            filename
             )
             )
-            
+    
             conn.commit()
-            
-            st.success(f"Absensi berhasil - Status : {status}")
+    
+            st.success(f"Absensi {jenis_absen} berhasil - Status : {status}")
 
 # ==============================
 # RIWAYAT GURU
