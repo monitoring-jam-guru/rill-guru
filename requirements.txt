@@ -1,9 +1,6 @@
 streamlit
 pandas
-openpyxl
 pillow
 fpdf
-folium
-streamlit-folium
 pydrive2
-oauth2client
+openpyxl
