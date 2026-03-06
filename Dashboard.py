@@ -47,9 +47,11 @@ UNIQUE(nik,hari,kelas,jam_mulai)
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS aktivitas(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
+nik TEXT,
 nama TEXT,
 tanggal TEXT,
 jam TEXT,
+kelas TEXT,
 jenis TEXT,
 status TEXT,
 foto TEXT
@@ -68,19 +70,6 @@ sekolah TEXT
 """)
 
 conn.commit()
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS aktivitas(
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-nik TEXT,
-nama TEXT,
-tanggal TEXT,
-jam TEXT,
-kelas TEXT,
-jenis TEXT,
-status TEXT,
-foto TEXT
-)
-""")
 
 # ==============================
 # USER DEFAULT
@@ -454,27 +443,16 @@ elif menu == "Upload Foto Mengajar":
     # AMBIL JADWAL HARI INI
     # =========================
 
-    jadwal = pd.read_sql(
+    jadwal_hari_ini = pd.read_sql(
     """
-    SELECT DISTINCT kelas,jam_mulai,jam_selesai
+    SELECT kelas,jam_mulai,jam_selesai
     FROM jadwal
     WHERE nik=? AND hari=?
+    ORDER BY jam_mulai
     """,
     conn,
     params=(nik,hari)
     )
-
-    # normalisasi kolom
-    jadwal.columns = jadwal.columns.str.lower().str.strip()
-    
-    # cek apakah kolom hari ada
-    if "hari" in jadwal.columns:
-        jadwal["hari"] = jadwal["hari"].astype(str).str.lower().str.strip()
-    else:
-        st.error("Kolom 'hari' tidak ditemukan pada data jadwal")
-        st.stop()
-
-    jadwal_hari_ini = jadwal[jadwal["hari"] == hari]
 
     if len(jadwal_hari_ini) == 0:
 
@@ -489,20 +467,20 @@ elif menu == "Upload Foto Mengajar":
 
     for i,row in jadwal_hari_ini.iterrows():
 
-        kelas = row["kelas"]
-        mulai = str(row["jam_mulai"])
-        selesai = str(row["jam_selesai"])
+    kelas = row["kelas"]
+    mulai = str(row["jam_mulai"])
+    selesai = str(row["jam_selesai"])
 
-        st.write(f"📚 {kelas} | {mulai} - {selesai}")
+    st.write(f"📚 {kelas} | {mulai} - {selesai}")
 
-        if st.button(
-            f"Masuk Kelas {kelas}",
-            key=f"kelas_{i}"
-        ):
+    if st.button(
+        f"Masuk Kelas {kelas}",
+        key=f"kelas_{i}"
+    ):
 
-            st.session_state.kelas_aktif = kelas
-            st.session_state.jam_mulai = mulai
-            st.session_state.jam_selesai = selesai
+        st.session_state.kelas_aktif = kelas
+        st.session_state.jam_mulai = mulai
+        st.session_state.jam_selesai = selesai
 
     # =========================
     # SELFIE FOTO
@@ -592,12 +570,12 @@ elif menu == "Riwayat Mengajar":
 
     st.title("Riwayat Mengajar")
 
-    nama=st.session_state.username
+    nik = st.session_state.username
 
     data=pd.read_sql(
-    "SELECT * FROM aktivitas WHERE nama=?",
+    "SELECT * FROM aktivitas WHERE nik=?",
     conn,
-    params=(nama,)
+    params=(nik,)
     )
 
     st.dataframe(data)
