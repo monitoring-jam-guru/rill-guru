@@ -1,18 +1,16 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from PIL import Image, ImageDraw
 from fpdf import FPDF
-import folium
-from streamlit_folium import st_folium
 
 st.set_page_config(page_title="DIMORA-SU", layout="wide")
 
-# =========================
+# ==============================
 # DATABASE
-# =========================
+# ==============================
 
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
@@ -47,20 +45,12 @@ id INTEGER PRIMARY KEY AUTOINCREMENT,
 nama TEXT,
 tanggal TEXT,
 jam TEXT,
+jenis TEXT,
 status TEXT,
 foto TEXT
 )
 """)
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS users(
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-username TEXT,
-password TEXT,
-role TEXT,
-sekolah TEXT
-)
-""")
-conn.commit()
+
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,12 +63,11 @@ sekolah TEXT
 
 conn.commit()
 
-# =========================
+# ==============================
 # USER DEFAULT
-# =========================
+# ==============================
 
-cursor.execute("SELECT * FROM users")
-cek_user = cursor.fetchall()
+cek_user = pd.read_sql("SELECT * FROM users", conn)
 
 if len(cek_user) == 0:
 
@@ -93,25 +82,17 @@ if len(cek_user) == 0:
     )
 
     conn.commit()
-cursor.execute(
-"UPDATE users SET username=?, password=? WHERE id=?",
-("operator_sman1","sman1",3)
-)
 
-conn.commit()
-guru = pd.read_sql("SELECT * FROM guru", conn)
-jadwal = pd.read_sql("SELECT * FROM jadwal", conn)
-aktivitas = pd.read_sql("SELECT * FROM aktivitas", conn)
-# =========================
-# LOGIN SYSTEM
-# =========================
+# ==============================
+# LOGIN
+# ==============================
 
 if "login" not in st.session_state:
     st.session_state.login = False
 
 if st.session_state.login == False:
 
-    st.title("Login DIMORA-SU")
+    st.title("LOGIN DIMORA-SU")
 
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
@@ -137,9 +118,10 @@ if st.session_state.login == False:
             st.error("Username atau Password salah")
 
     st.stop()
-# =========================
-# SIDEBAR MENU
-# =========================
+
+# ==============================
+# SIDEBAR
+# ==============================
 
 st.sidebar.title("DIMORA-SU")
 
@@ -148,15 +130,11 @@ role = st.session_state.role
 if role == "operator_dinas":
 
     menu = st.sidebar.selectbox(
-    "Menu Sistem",
+    "Menu",
     [
     "Dashboard",
-    "Tambah Guru",
-    "Tambah Jadwal",
-    "Edit / Hapus Jadwal",
-    "Upload Foto Mengajar",
+    "Import Excel",
     "Monitoring Hari Ini",
-    "Peta Sekolah",
     "Laporan Kadis",
     "Manajemen User"
     ]
@@ -165,70 +143,53 @@ if role == "operator_dinas":
 elif role == "operator_sekolah":
 
     menu = st.sidebar.selectbox(
-    "Menu Sistem",
+    "Menu",
     [
     "Dashboard",
-    "Tambah Guru",
-    "Tambah Jadwal",
+    "Import Excel",
+    "Monitoring Hari Ini"
+    ]
+    )
+
+elif role == "guru":
+
+    menu = st.sidebar.selectbox(
+    "Menu",
+    [
     "Upload Foto Mengajar",
-    "Monitoring Hari Ini",
-    "Export Excel"
+    "Riwayat Mengajar"
     ]
     )
 
 elif role == "kabid":
 
     menu = st.sidebar.selectbox(
-    "Menu Sistem",
+    "Menu",
     [
     "Dashboard",
     "Monitoring Hari Ini",
-    "Peta Sekolah",
     "Laporan Kadis"
     ]
     )
+
 st.sidebar.write("Login sebagai")
 st.sidebar.success(st.session_state.username)
-st.sidebar.caption(st.session_state.role)
 
 if st.sidebar.button("Logout"):
-    st.session_state.login = False
+    st.session_state.login=False
     st.rerun()
-elif menu == "Export Excel":
 
-    st.title("Export Data Sekolah")
+# ==============================
+# LOAD DATA
+# ==============================
 
-    sekolah_user = st.session_state.sekolah
+guru = pd.read_sql("SELECT * FROM guru", conn)
+jadwal = pd.read_sql("SELECT * FROM jadwal", conn)
+aktivitas = pd.read_sql("SELECT * FROM aktivitas", conn)
 
-    data_guru = pd.read_sql(
-    "SELECT * FROM guru WHERE sekolah=?",
-    conn,
-    params=(sekolah_user,)
-    )
-
-    data_jadwal = pd.read_sql(
-    "SELECT * FROM jadwal WHERE sekolah=?",
-    conn,
-    params=(sekolah_user,)
-    )
-
-    file = "data_sekolah.xlsx"
-
-    with pd.ExcelWriter(file) as writer:
-
-        data_guru.to_excel(writer, sheet_name="Guru", index=False)
-        data_jadwal.to_excel(writer, sheet_name="Jadwal", index=False)
-
-    with open(file,"rb") as f:
-
-        st.download_button(
-        "Download Excel",
-        f,
-        file_name="data_sekolah.xlsx"
-        )
-# =========================
+# ==============================
 # WATERMARK FOTO
-# =========================
+# ==============================
 
 def watermark(path,text):
 
@@ -237,9 +198,9 @@ def watermark(path,text):
     draw.text((10,10), text, (255,0,0))
     img.save(path)
 
-# =========================
+# ==============================
 # DASHBOARD
-# =========================
+# ==============================
 
 if menu == "Dashboard":
 
@@ -259,165 +220,90 @@ if menu == "Dashboard":
     col2.metric("Mengajar Sesuai", sesuai)
     col3.metric("Tidak Sesuai", tidak)
 
-    st.divider()
+    st.bar_chart(data_today.groupby("status").size())
 
-    st.subheader("Grafik Monitoring Hari Ini")
+# ==============================
+# IMPORT EXCEL
+# ==============================
 
-    if len(data_today)>0:
+elif menu == "Import Excel":
 
-        grafik = data_today.groupby("status").size()
+    st.title("Import Data Guru & Jadwal")
 
-        st.bar_chart(grafik)
+    st.info("Upload Excel dengan 2 Sheet : Guru dan Jadwal")
 
-    else:
-        st.info("Belum ada aktivitas hari ini")
-    st.subheader("Aktivitas Guru")
+    file = st.file_uploader("Upload File Excel", type=["xlsx"])
 
-    st.dataframe(
-        aktivitas.sort_values("id", ascending=False)
-    )
-# =========================
-# TAMBAH GURU
-# =========================
+    if file is not None:
 
-elif menu == "Tambah Guru":
+        df_guru = pd.read_excel(file, sheet_name="Guru")
+        df_jadwal = pd.read_excel(file, sheet_name="Jadwal")
 
-    st.title("Input Data Guru")
+        for i,row in df_guru.iterrows():
 
-    nik = st.text_input("NIK")
-    nama = st.text_input("Nama Guru")
-    sekolah = st.text_input("Sekolah")
-    mapel = st.text_input("Mata Pelajaran")
+            cursor.execute(
+            "INSERT INTO guru (nik,nama,sekolah,mapel,lat,lon) VALUES (?,?,?,?,?,?)",
+            (
+            row["nik"],
+            row["nama"],
+            row["sekolah"],
+            row["mapel"],
+            row["lat"],
+            row["lon"]
+            )
+            )
 
-    st.subheader("Lokasi Sekolah")
+            username=row["nik"]
+            password="12345"
 
-    lat = st.number_input("Latitude", value=3.5952)
-    lon = st.number_input("Longitude", value=98.6722)
+            cursor.execute(
+            "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
+            (username,password,"guru",row["sekolah"])
+            )
 
-    if st.button("Simpan Guru"):
+        for i,row in df_jadwal.iterrows():
 
-        cursor.execute(
-        "INSERT INTO guru (nik,nama,sekolah,mapel,lat,lon) VALUES (?,?,?,?,?,?)",
-        (nik,nama,sekolah,mapel,lat,lon)
-        )
-
-        conn.commit()
-
-        st.success("Guru berhasil disimpan")
-
-# =========================
-# TAMBAH JADWAL
-# =========================
-
-elif menu == "Tambah Jadwal":
-
-    st.title("Input Jadwal Mengajar")
-
-    if len(guru) == 0:
-        st.warning("Tambahkan guru terlebih dahulu")
-        st.stop()
-
-    nama = st.selectbox("Nama Guru", guru["nama"])
-    sekolah = st.selectbox("Sekolah", guru["sekolah"].unique())
-
-    hari = st.selectbox(
-    "Hari",
-    ["Senin","Selasa","Rabu","Kamis","Jumat"]
-    )
-
-    kelas = st.text_input("Kelas")
-
-    jam_mulai = st.time_input("Jam Mulai")
-    jam_selesai = st.time_input("Jam Selesai")
-
-    if st.button("Simpan Jadwal"):
-
-        cursor.execute(
-        """
-        INSERT INTO jadwal (nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
-        VALUES (?,?,?,?,?,?)
-        """,
-        (nama,sekolah,hari,kelas,str(jam_mulai),str(jam_selesai))
-        )
+            cursor.execute(
+            """
+            INSERT INTO jadwal (nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
+            VALUES (?,?,?,?,?,?)
+            """,
+            (
+            row["nama"],
+            row["sekolah"],
+            row["hari"],
+            row["kelas"],
+            row["jam_mulai"],
+            row["jam_selesai"]
+            )
+            )
 
         conn.commit()
 
-        st.success("Jadwal berhasil disimpan")
+        st.success("Data berhasil diimport")
 
-    st.subheader("Daftar Jadwal")
-
-    st.dataframe(pd.read_sql("SELECT * FROM jadwal", conn))
-
-# =========================
-# EDIT / HAPUS JADWAL
-# =========================
-
-elif menu == "Edit / Hapus Jadwal":
-
-    st.title("Edit atau Hapus Jadwal")
-
-    if len(jadwal) == 0:
-        st.warning("Belum ada jadwal")
-        st.stop()
-
-    id_jadwal = st.selectbox("Pilih Jadwal", jadwal["id"])
-
-    data = jadwal[jadwal["id"] == id_jadwal].iloc[0]
-
-    nama = st.text_input("Nama Guru", data["nama"])
-    sekolah = st.text_input("Sekolah", data["sekolah"])
-    hari = st.text_input("Hari", data["hari"])
-    kelas = st.text_input("Kelas", data["kelas"])
-    jam_mulai = st.text_input("Jam Mulai", data["jam_mulai"])
-    jam_selesai = st.text_input("Jam Selesai", data["jam_selesai"])
-
-    col1,col2 = st.columns(2)
-
-    if col1.button("Update Jadwal"):
-
-        cursor.execute(
-        """
-        UPDATE jadwal
-        SET nama=?, sekolah=?, hari=?, kelas=?, jam_mulai=?, jam_selesai=?
-        WHERE id=?
-        """,
-        (nama,sekolah,hari,kelas,jam_mulai,jam_selesai,id_jadwal)
-        )
-
-        conn.commit()
-
-        st.success("Jadwal diperbarui")
-
-    if col2.button("Hapus Jadwal"):
-
-        cursor.execute(
-        "DELETE FROM jadwal WHERE id=?",
-        (id_jadwal,)
-        )
-
-        conn.commit()
-
-        st.warning("Jadwal dihapus")
-
-# =========================
-# UPLOAD FOTO
-# =========================
+# ==============================
+# UPLOAD FOTO (GURU)
+# ==============================
 
 elif menu == "Upload Foto Mengajar":
 
     st.title("Upload Bukti Mengajar")
 
-    nama = st.selectbox("Guru", guru["nama"])
+    nama = st.session_state.username
 
-    foto = st.file_uploader("Upload Foto", type=["jpg","png"])
+    jenis = st.selectbox(
+    "Jenis Aktivitas",
+    ["Masuk Kelas","Keluar Kelas"]
+    )
+
+    foto = st.camera_input("Ambil Foto dari Kamera")
 
     if st.button("Upload"):
 
         if foto is None:
-            st.error("Silakan upload foto")
+            st.error("Ambil foto dulu")
             st.stop()
-
-        from datetime import datetime, timedelta
 
         waktu = datetime.utcnow() + timedelta(hours=7)
 
@@ -434,93 +320,86 @@ elif menu == "Upload Foto Mengajar":
         "Friday":"Jumat"
         }
 
-        hari = hari_map.get(hari,hari)
+        hari=hari_map.get(hari,hari)
 
         jadwal_guru = pd.read_sql(
         "SELECT * FROM jadwal WHERE nama=?",
         conn,
         params=(nama,)
         )
-        
-        # filter hari di python supaya lebih aman
-        jadwal_guru = jadwal_guru[jadwal_guru["hari"] == hari]
-        
-        # DEBUG
-        st.write("Hari sistem:", hari)
-        st.write("Jam upload:", jam)
-        st.write("Jumlah jadwal ditemukan:", len(jadwal_guru))
 
-        from datetime import datetime, timedelta
+        jadwal_guru = jadwal_guru[jadwal_guru["hari"]==hari]
 
-        status = "Tidak Sesuai"
-        
-        jam_upload = datetime.strptime(jam,"%H:%M:%S")
-        
+        status="Tidak Sesuai"
+
+        jam_upload=datetime.strptime(jam,"%H:%M:%S")
+
         for i,row in jadwal_guru.iterrows():
-        
-            if row["hari"] != hari:
-                continue
-        
-            mulai = datetime.strptime(row["jam_mulai"],"%H:%M:%S")
-            selesai = datetime.strptime(row["jam_selesai"],"%H:%M:%S")
-        
-            # toleransi 15 menit
-            selesai_toleransi = selesai + timedelta(minutes=15)
-        
-            if mulai <= jam_upload <= selesai_toleransi:
-                status = "Sesuai"
-                break
+
+            mulai=datetime.strptime(row["jam_mulai"],"%H:%M:%S")
+            selesai=datetime.strptime(row["jam_selesai"],"%H:%M:%S")
+
+            selesai=selesai+timedelta(minutes=15)
+
+            if mulai<=jam_upload<=selesai:
+                status="Sesuai"
 
         if not os.path.exists("uploads"):
             os.makedirs("uploads")
 
-        filename = f"{nama}_{tanggal}_{jam}.jpg"
+        filename=f"{nama}_{tanggal}_{jam}.jpg"
+        path=os.path.join("uploads",filename)
 
-        path = os.path.join("uploads",filename)
-        
         with open(path,"wb") as f:
             f.write(foto.getbuffer())
 
         watermark(path,f"{nama} {tanggal} {jam}")
 
         cursor.execute(
-        "INSERT INTO aktivitas (nama,tanggal,jam,status,foto) VALUES (?,?,?,?,?)",
-        (nama,tanggal,jam,status,foto.name)
+        "INSERT INTO aktivitas (nama,tanggal,jam,jenis,status,foto) VALUES (?,?,?,?,?,?)",
+        (nama,tanggal,jam,jenis,status,filename)
         )
 
         conn.commit()
 
         st.success("Foto berhasil diupload")
 
-# =========================
+# ==============================
+# RIWAYAT GURU
+# ==============================
+
+elif menu == "Riwayat Mengajar":
+
+    st.title("Riwayat Mengajar")
+
+    nama=st.session_state.username
+
+    data=pd.read_sql(
+    "SELECT * FROM aktivitas WHERE nama=?",
+    conn,
+    params=(nama,)
+    )
+
+    st.dataframe(data)
+
+# ==============================
 # MONITORING
-# =========================
+# ==============================
 
 elif menu == "Monitoring Hari Ini":
 
     st.title("Monitoring Guru")
 
-    hari_ini = datetime.now().strftime("%Y-%m-%d")
+    hari_ini=datetime.now().strftime("%Y-%m-%d")
 
-    data = pd.read_sql(
+    data=pd.read_sql(
     "SELECT * FROM aktivitas WHERE tanggal=?",
     conn,
     params=(hari_ini,)
     )
 
-    sekolah_filter = st.selectbox(
-    "Filter Sekolah",
-    ["Semua"] + list(guru["sekolah"].unique())
-    )
-
-    if sekolah_filter != "Semua":
-
-        guru_sekolah = guru[guru["sekolah"]==sekolah_filter]["nama"]
-
-        data = data[data["nama"].isin(guru_sekolah)]
-
     if len(data)==0:
-        st.warning("Belum ada aktivitas hari ini")
+        st.warning("Belum ada aktivitas")
 
     else:
 
@@ -529,72 +408,26 @@ elif menu == "Monitoring Hari Ini":
             if row["status"]=="Sesuai":
 
                 st.success(
-                f"🟢 {row['nama']} - {row['jam']}"
+                f"{row['nama']} - {row['jam']} - {row['jenis']}"
                 )
 
             else:
 
                 st.error(
-                f"🔴 {row['nama']} - {row['jam']}"
+                f"{row['nama']} - {row['jam']} - {row['jenis']}"
                 )
-elif menu == "Manajemen User":
 
-    st.title("Manajemen User")
-
-    username = st.text_input("Username")
-    password = st.text_input("Password")
-
-    role = st.selectbox(
-    "Role",
-    ["operator_dinas","operator_sekolah","kabid"]
-    )
-
-    sekolah = st.text_input("Sekolah")
-
-    if st.button("Tambah User"):
-
-        cursor.execute(
-        "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
-        (username,password,role,sekolah)
-        )
-
-        conn.commit()
-
-        st.success("User berhasil ditambahkan")
-
-    st.subheader("Daftar User")
-
-    st.dataframe(pd.read_sql("SELECT * FROM users", conn))
-# =========================
-# PETA SEKOLAH
-# =========================
-
-elif menu == "Peta Sekolah":
-
-    st.title("Peta Sekolah")
-
-    m = folium.Map(location=[3.6,98.6], zoom_start=7)
-
-    for i,row in guru.iterrows():
-
-        folium.Marker(
-        location=[row["lat"],row["lon"]],
-        popup=row["sekolah"]
-        ).add_to(m)
-
-    st_folium(m,width=900)
-
-# =========================
+# ==============================
 # LAPORAN PDF
-# =========================
+# ==============================
 
 elif menu == "Laporan Kadis":
 
     st.title("Laporan Monitoring")
 
-    hari_ini = datetime.now().strftime("%Y-%m-%d")
+    hari_ini=datetime.now().strftime("%Y-%m-%d")
 
-    data = pd.read_sql(
+    data=pd.read_sql(
     "SELECT * FROM aktivitas WHERE tanggal=?",
     conn,
     params=(hari_ini,)
@@ -602,7 +435,7 @@ elif menu == "Laporan Kadis":
 
     if st.button("Generate PDF"):
 
-        pdf = FPDF()
+        pdf=FPDF()
 
         pdf.add_page()
         pdf.set_font("Arial", size=12)
@@ -610,7 +443,7 @@ elif menu == "Laporan Kadis":
         pdf.cell(200,10,"Laporan Monitoring Guru",ln=True)
         pdf.cell(200,10,f"Tanggal: {hari_ini}",ln=True)
 
-        pdf.ln(5)
+        pdf.ln(10)
 
         for i,row in data.iterrows():
 
@@ -623,7 +456,38 @@ elif menu == "Laporan Kadis":
         with open("laporan.pdf","rb") as f:
 
             st.download_button(
-            "Download Laporan",
+            "Download PDF",
             f,
             file_name="laporan_monitoring.pdf"
             )
+
+# ==============================
+# MANAJEMEN USER
+# ==============================
+
+elif menu == "Manajemen User":
+
+    st.title("Manajemen User")
+
+    username=st.text_input("Username")
+    password=st.text_input("Password")
+
+    role=st.selectbox(
+    "Role",
+    ["operator_dinas","operator_sekolah","kabid","guru"]
+    )
+
+    sekolah=st.text_input("Sekolah")
+
+    if st.button("Tambah User"):
+
+        cursor.execute(
+        "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
+        (username,password,role,sekolah)
+        )
+
+        conn.commit()
+
+        st.success("User berhasil ditambahkan")
+
+    st.dataframe(pd.read_sql("SELECT * FROM users",conn))
