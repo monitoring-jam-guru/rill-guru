@@ -1,3 +1,5 @@
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
 import streamlit as st
 import pandas as pd
 import sqlite3
@@ -228,6 +230,24 @@ def watermark(path,text):
     draw = ImageDraw.Draw(img)
     draw.text((10,10), text, (255,0,0))
     img.save(path)
+def upload_drive(path):
+
+    gauth = GoogleAuth()
+
+    gauth.LocalWebserverAuth()
+
+    drive = GoogleDrive(gauth)
+
+    file_drive = drive.CreateFile(
+        {"title": os.path.basename(path)}
+    )
+
+    with open(path,"wb") as f:
+    f.write(foto.getbuffer())
+
+    watermark(path,f"{nama} {tanggal_str} {jam}")
+    
+    upload_drive(path)
 
 # ==============================
 # DASHBOARD
@@ -587,10 +607,17 @@ elif menu == "Upload Foto Mengajar":
                 f.write(foto.getbuffer())
 
             watermark(path,f"{nama} {tanggal_str} {jam}")
+            upload_drive(path)
 
             # =========================
             # SIMPAN DATABASE
             # =========================
+            
+            kelas = st.session_state.get("kelas_aktif","")
+
+            if kelas == "":
+                st.error("Kelas belum dipilih")
+                st.stop()
             
             cursor.execute(
             """
@@ -599,14 +626,14 @@ elif menu == "Upload Foto Mengajar":
             VALUES (?,?,?,?,?,?,?,?)
             """,
             (
-            nik,
-            nama,
-            tanggal_str,
-            jam,
-            st.session_state.kelas_aktif,
+            str(nik),
+            str(nama),
+            str(tanggal_str),
+            str(jam),
+            str(kelas),
             "Masuk Kelas",
-            status,
-            filename
+            str(status),
+            str(filename)
             )
             )
             
