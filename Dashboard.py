@@ -18,14 +18,13 @@ cursor = conn.cursor()
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS guru(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
-nik TEXT,
+nik TEXT UNIQUE,
 nama TEXT,
 sekolah TEXT,
 mapel TEXT,
 lat REAL,
 lon REAL
 )
-""")
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS jadwal(
@@ -267,7 +266,10 @@ elif menu == "Import Excel":
                 for i,row in df_guru.iterrows():
 
                     cursor.execute(
-                    "INSERT INTO guru (nik,nama,sekolah,mapel,lat,lon) VALUES (?,?,?,?,?,?)",
+                    """
+                    INSERT OR IGNORE INTO guru (nik,nama,sekolah,mapel,lat,lon)
+                    VALUES (?,?,?,?,?,?)
+                    """,
                     (
                     str(row.get("nik","")),
                     str(row.get("nama","")),
@@ -280,7 +282,10 @@ elif menu == "Import Excel":
 
                     # buat akun guru otomatis
                     cursor.execute(
-                    "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
+                    """
+                    INSERT OR IGNORE INTO users (username,password,role,sekolah)
+                    VALUES (?,?,?,?)
+                    """,
                     (
                     str(row.get("nik","")),
                     "12345",
