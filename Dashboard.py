@@ -482,6 +482,7 @@ elif menu == "Upload Foto Mengajar":
     }
 
     hari = hari_map.get(hari_inggris)
+    st.write("Hari yang dipilih:", hari)
 
     if hari is None:
 
@@ -498,11 +499,11 @@ elif menu == "Upload Foto Mengajar":
     """
     SELECT kelas,jam_mulai,jam_selesai
     FROM jadwal
-    WHERE nik=? AND hari=?
+    WHERE nik=? AND lower(hari)=?
     ORDER BY jam_mulai
     """,
     conn,
-    params=(nik,hari)
+    params=(nik,hari.lower())
     )
 
     if len(jadwal_hari_ini) == 0:
