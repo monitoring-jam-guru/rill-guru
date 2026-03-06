@@ -342,7 +342,7 @@ elif menu == "Import Excel":
 
 elif menu == "Upload Foto Mengajar":
 
-    st.title("Upload Bukti Mengajar")
+    st.title("Absensi Mengajar Guru")
 
     nik = st.session_state.username
 
@@ -371,114 +371,122 @@ elif menu == "Upload Foto Mengajar":
     hari_inggris = tanggal.strftime("%A")
 
     hari_map = {
-        "Monday":"Senin",
-        "Tuesday":"Selasa",
-        "Wednesday":"Rabu",
-        "Thursday":"Kamis",
-        "Friday":"Jumat",
-        "Saturday":"Sabtu"
+        "Monday":"senin",
+        "Tuesday":"selasa",
+        "Wednesday":"rabu",
+        "Thursday":"kamis",
+        "Friday":"jumat"
     }
 
     hari = hari_map.get(hari_inggris)
 
-    st.write(f"Hari : **{hari.capitalize()}**")
+    st.write(f"Hari Mengajar : **{hari.capitalize()}**")
 
     # =========================
-    # AMBIL JADWAL GURU
+    # AMBIL JADWAL HARI INI
     # =========================
 
-    jadwal_guru = pd.read_sql(
+    jadwal = pd.read_sql(
         "SELECT * FROM jadwal WHERE nama=?",
         conn,
         params=(nama,)
     )
 
-    jadwal_guru["hari"] = jadwal_guru["hari"].str.lower().str.strip()
+    jadwal["hari"] = jadwal["hari"].str.lower().str.strip()
 
-    jadwal_hari_ini = jadwal_guru[jadwal_guru["hari"] == hari]
+    jadwal_hari_ini = jadwal[jadwal["hari"] == hari]
 
     if len(jadwal_hari_ini) == 0:
 
-        st.warning("Tidak ada jadwal mengajar pada hari ini")
+        st.warning("Tidak ada jadwal mengajar hari ini")
         st.stop()
 
     st.subheader("Jadwal Mengajar Hari Ini")
 
-    st.dataframe(jadwal_hari_ini[["kelas","jam_mulai","jam_selesai"]])
+    # tampilkan jadwal
+    for i,row in jadwal_hari_ini.iterrows():
+
+        kelas = row["kelas"]
+        mulai = str(row["jam_mulai"])
+        selesai = str(row["jam_selesai"])
+
+        st.write(f"📚 {kelas}  |  {mulai} - {selesai}")
+
+        if st.button(f"Masuk Kelas {kelas}"):
+
+            st.session_state.kelas_aktif = kelas
+            st.session_state.jam_mulai = mulai
+            st.session_state.jam_selesai = selesai
 
     # =========================
-    # PILIH KELAS
+    # SELFIE FOTO
     # =========================
 
-    kelas = st.selectbox(
-        "Pilih Kelas",
-        jadwal_hari_ini["kelas"]
-    )
+    if "kelas_aktif" in st.session_state:
 
-    jenis = st.selectbox(
-        "Jenis Aktivitas",
-        ["Masuk Kelas","Keluar Kelas"]
-    )
+        st.subheader(f"Selfie Masuk Kelas {st.session_state.kelas_aktif}")
 
-    foto = st.camera_input("Ambil Foto")
+        foto = st.camera_input("Ambil Foto")
 
-    if st.button("Upload Bukti Mengajar"):
+        if st.button("Upload Foto"):
 
-        if foto is None:
-            st.error("Ambil foto terlebih dahulu")
-            st.stop()
+            if foto is None:
+                st.error("Silakan ambil foto terlebih dahulu")
+                st.stop()
 
-        waktu = datetime.utcnow() + timedelta(hours=7)
+            waktu = datetime.utcnow() + timedelta(hours=7)
 
-        tanggal_str = waktu.strftime("%Y-%m-%d")
-        jam = waktu.strftime("%H:%M:%S")
+            tanggal_str = waktu.strftime("%Y-%m-%d")
+            jam = waktu.strftime("%H:%M:%S")
 
-        jam_upload = datetime.strptime(jam,"%H:%M:%S")
+            jam_upload = datetime.strptime(jam,"%H:%M:%S")
 
-        # ambil jadwal kelas
-        jadwal_kelas = jadwal_hari_ini[
-            jadwal_hari_ini["kelas"] == kelas
-        ]
-
-        status = "Tidak Sesuai"
-
-        for i,row in jadwal_kelas.iterrows():
-
-            mulai = str(row["jam_mulai"]).replace(".",":")
-            selesai = str(row["jam_selesai"]).replace(".",":")
+            mulai = st.session_state.jam_mulai.replace(".",":")
+            selesai = st.session_state.jam_selesai.replace(".",":")
 
             mulai = datetime.strptime(mulai,"%H:%M:%S")
             selesai = datetime.strptime(selesai,"%H:%M:%S")
 
             selesai = selesai + timedelta(minutes=15)
 
+            status = "Tidak Sesuai"
+
             if mulai <= jam_upload <= selesai:
                 status = "Sesuai"
 
-        if not os.path.exists("uploads"):
-            os.makedirs("uploads")
+            if not os.path.exists("uploads"):
+                os.makedirs("uploads")
 
-        filename=f"{nik}_{tanggal_str}_{jam}.jpg"
+            filename=f"{nik}_{tanggal_str}_{jam}.jpg"
 
-        path=os.path.join("uploads",filename)
+            path=os.path.join("uploads",filename)
 
-        with open(path,"wb") as f:
-            f.write(foto.getbuffer())
+            with open(path,"wb") as f:
+                f.write(foto.getbuffer())
 
-        watermark(path,f"{nama} {tanggal_str} {jam}")
+            watermark(path,f"{nama} {tanggal_str} {jam}")
 
-        cursor.execute(
-        """
-        INSERT INTO aktivitas
-        (nik,nama,tanggal,jam,kelas,jenis,status,foto)
-        VALUES (?,?,?,?,?,?,?,?)
-        """,
-        (nik,nama,tanggal_str,jam,kelas,jenis,status,filename)
-        )
+            cursor.execute(
+            """
+            INSERT INTO aktivitas
+            (nik,nama,tanggal,jam,kelas,jenis,status,foto)
+            VALUES (?,?,?,?,?,?,?,?)
+            """,
+            (
+            nik,
+            nama,
+            tanggal_str,
+            jam,
+            st.session_state.kelas_aktif,
+            "Masuk Kelas",
+            status,
+            filename
+            )
+            )
 
-        conn.commit()
+            conn.commit()
 
-        st.success(f"Upload berhasil - Status : {status}")
+            st.success(f"Absensi berhasil - Status : {status}")
 
 # ==============================
 # RIWAYAT GURU
