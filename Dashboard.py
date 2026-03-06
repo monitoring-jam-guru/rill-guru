@@ -71,14 +71,27 @@ cek_user = pd.read_sql("SELECT * FROM users", conn)
 
 if len(cek_user) == 0:
 
+    # ADMIN DINAS
     cursor.execute(
     "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
     ("admin","admin123","operator_dinas","-")
     )
 
+    # KABID
     cursor.execute(
     "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
     ("kabid","kabid123","kabid","-")
+    )
+
+    # OPERATOR SEKOLAH
+    cursor.execute(
+    "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
+    ("operator_sman1","12345","operator_sekolah","SMAN 1 Medan")
+    )
+
+    cursor.execute(
+    "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
+    ("operator_sman2","12345","operator_sekolah","SMAN 2 Medan")
     )
 
     conn.commit()
