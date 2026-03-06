@@ -578,46 +578,66 @@ elif menu == "Upload Foto Mengajar":
             st.session_state.jam_selesai = selesai
 
     # =========================
-    # SELFIE FOTO
-    # =========================
+# SELFIE FOTO
+# =========================
 
-    if "kelas_aktif" in st.session_state:
+if "kelas_aktif" in st.session_state:
 
-        st.subheader(
-            f"Selfie Masuk Kelas {st.session_state.kelas_aktif}"
-        )
+    st.subheader(
+        f"Selfie Kelas {st.session_state.kelas_aktif}"
+    )
 
-        foto = st.camera_input("Ambil Foto")
+    foto = st.camera_input("Ambil Foto")
 
-        if st.button("Upload Foto",key="upload_foto"):
+    if st.button("Upload Foto", key="upload_foto"):
 
-            if foto is None:
-                st.error("Silakan ambil foto terlebih dahulu")
-                st.stop()
+        if foto is None:
+            st.error("Silakan ambil foto terlebih dahulu")
+            st.stop()
 
-            waktu = datetime.utcnow() + timedelta(hours=7)
+        waktu = datetime.utcnow() + timedelta(hours=7)
 
-            tanggal_str = waktu.strftime("%Y-%m-%d")
-            jam = waktu.strftime("%H:%M:%S")
-            
-            # ubah jam upload
-            jam_upload = datetime.strptime(jam,"%H:%M:%S")
-            
-            # ambil jadwal
-            mulai = st.session_state.jam_mulai.replace(".",":")
-            selesai = st.session_state.jam_selesai.replace(".",":")
-            
-            # ubah ke datetime
-            mulai_dt = datetime.strptime(mulai,"%H:%M:%S")
-            selesai_dt = datetime.strptime(selesai,"%H:%M:%S")
-            
-            # toleransi 15 menit
-            selesai_dt = selesai_dt + timedelta(minutes=15)
-            
-            status = "Tidak Sesuai"
-            
-            if mulai_dt <= jam_upload <= selesai_dt:
+        tanggal_str = waktu.strftime("%Y-%m-%d")
+        jam = waktu.strftime("%H:%M:%S")
+
+        jam_upload = datetime.strptime(jam, "%H:%M:%S")
+
+        mulai = st.session_state.jam_mulai.replace(".", ":")
+        selesai = st.session_state.jam_selesai.replace(".", ":")
+
+        mulai_dt = datetime.strptime(mulai, "%H:%M:%S")
+        selesai_dt = datetime.strptime(selesai, "%H:%M:%S")
+
+        # toleransi
+        mulai_toleransi = mulai_dt + timedelta(minutes=15)
+        selesai_toleransi = selesai_dt + timedelta(minutes=15)
+
+        jenis_absen = ""
+        status = "Tidak Sesuai"
+
+        # =========================
+        # ABSENSI MASUK
+        # =========================
+        if jam_upload <= mulai_toleransi:
+
+            jenis_absen = "Masuk Kelas"
+
+            if mulai_dt <= jam_upload <= mulai_toleransi:
                 status = "Sesuai"
+
+        # =========================
+        # ABSENSI SELESAI
+        # =========================
+        elif jam_upload >= selesai_dt:
+
+            jenis_absen = "Selesai Kelas"
+
+            if selesai_dt <= jam_upload <= selesai_toleransi:
+                status = "Sesuai"
+
+        else:
+
+            jenis_absen = "Di Luar Jadwal"
 
             # =========================
             # SIMPAN FOTO
