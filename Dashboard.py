@@ -248,6 +248,7 @@ elif menu == "Import Excel":
 
         try:
 
+            # baca excel
             df_guru = pd.read_excel(file, sheet_name="Guru")
             df_jadwal = pd.read_excel(file, sheet_name="Jadwal")
 
@@ -255,57 +256,58 @@ elif menu == "Import Excel":
             df_guru.columns = df_guru.columns.str.lower().str.strip()
             df_jadwal.columns = df_jadwal.columns.str.lower().str.strip()
 
-            st.write("Preview Data Guru")
+            st.subheader("Preview Data Guru")
             st.dataframe(df_guru)
 
-            st.write("Preview Data Jadwal")
+            st.subheader("Preview Data Jadwal")
             st.dataframe(df_jadwal)
 
             if st.button("Import Sekarang"):
 
-                for i,row in df_guru.iterrows():
+                # ==========================
+                # IMPORT DATA GURU
+                # ==========================
 
+                for i, row in df_guru.iterrows():
+
+                    nik = str(row.get("nik","")).strip()
+                    nama = str(row.get("nama","")).strip()
+                    sekolah = str(row.get("sekolah","")).strip()
+                    mapel = str(row.get("mapel","")).strip()
+
+                    lat = float(row.get("lat",0))
+                    lon = float(row.get("lon",0))
+
+                    # insert guru (tidak akan duplikat karena OR IGNORE)
                     cursor.execute(
-                    """
-                    INSERT OR IGNORE INTO guru (nik,nama,sekolah,mapel,lat,lon)
-                    VALUES (?,?,?,?,?,?)
-                    """,
-                    (
-                    str(row.get("nik","")),
-                    str(row.get("nama","")),
-                    str(row.get("sekolah","")),
-                    str(row.get("mapel","")),
-                    float(row.get("lat",0)),
-                    float(row.get("lon",0))
-                    )
+                        "INSERT OR IGNORE INTO guru (nik,nama,sekolah,mapel,lat,lon) VALUES (?,?,?,?,?,?)",
+                        (nik,nama,sekolah,mapel,lat,lon)
                     )
 
                     # buat akun guru otomatis
                     cursor.execute(
-                    """
-                    INSERT OR IGNORE INTO users (username,password,role,sekolah)
-                    VALUES (?,?,?,?)
-                    """,
-                    (
-                    str(row.get("nik","")),
-                    "12345",
-                    "guru",
-                    str(row.get("sekolah",""))
-                    )
+                        "INSERT OR IGNORE INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
+                        (nik,"12345","guru",sekolah)
                     )
 
-                for i,row in df_jadwal.iterrows():
+
+                # ==========================
+                # IMPORT DATA JADWAL
+                # ==========================
+
+                for i, row in df_jadwal.iterrows():
+
+                    nama = str(row.get("nama","")).strip()
+                    sekolah = str(row.get("sekolah","")).strip()
+                    hari = str(row.get("hari","")).strip().lower()
+                    kelas = str(row.get("kelas","")).strip()
+
+                    jam_mulai = str(row.get("jam_mulai","")).replace(".",":")
+                    jam_selesai = str(row.get("jam_selesai","")).replace(".",":")
 
                     cursor.execute(
-                    "INSERT INTO jadwal (nama,sekolah,hari,kelas,jam_mulai,jam_selesai) VALUES (?,?,?,?,?,?)",
-                    (
-                    str(row.get("nama","")),
-                    str(row.get("sekolah","")),
-                    str(row.get("hari","")),
-                    str(row.get("kelas","")),
-                    str(row.get("jam_mulai","")),
-                    str(row.get("jam_selesai",""))
-                    )
+                        "INSERT INTO jadwal (nama,sekolah,hari,kelas,jam_mulai,jam_selesai) VALUES (?,?,?,?,?,?)",
+                        (nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
                     )
 
                 conn.commit()
