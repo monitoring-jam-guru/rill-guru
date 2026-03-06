@@ -570,7 +570,6 @@ elif menu == "Upload Foto Mengajar":
             status,
             filename
             )
-            )
             (
             nik,
             nama,
