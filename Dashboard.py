@@ -478,9 +478,9 @@ elif menu == "Upload Foto Mengajar":
             key=f"kelas_{i}"
         ):
 
-        st.session_state.kelas_aktif = kelas
-        st.session_state.jam_mulai = mulai
-        st.session_state.jam_selesai = selesai
+            st.session_state.kelas_aktif = kelas
+            st.session_state.jam_mulai = mulai
+            st.session_state.jam_selesai = selesai
 
     # =========================
     # SELFIE FOTO
