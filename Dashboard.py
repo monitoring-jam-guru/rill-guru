@@ -949,27 +949,6 @@ elif menu == "Monitoring Hari Ini":
             )
     
             # ==============================
-            # VALIDASI SIMPAN (FIXED)
-            # ==============================
-            
-            if st.button("Simpan", key=f"btn_{row['id']}"):
-
-            query = """
-            UPDATE aktivitas
-            SET validasi_admin = ?
-            WHERE id = ?
-            """
-        
-            cursor.execute(query, (valid, row["id"]))
-            conn.commit()
-        
-            st.success("Validasi tersimpan")
-            st.rerun()
-        
-        st.markdown("---")
-            
-            
-            # ==============================
             # MONITORING HARI INI (FIXED FULL)
             # ==============================
             
@@ -995,34 +974,50 @@ elif menu == "Monitoring Hari Ini":
             
                 tanggal = hari_filter.strftime("%Y-%m-%d")
             
-                data = pd.read_sql(
-                query = "SELECT * FROM aktivitas WHERE tanggal = ?"
-
+                # =========================
+                # FIX QUERY (INI YANG SALAH SEBELUMNYA)
+                # =========================
+            
+                query = """
+                SELECT * FROM aktivitas
+                WHERE tanggal = ?
+                ORDER BY nama, jam
+                """
+            
                 data = pd.read_sql(query, conn, params=(tanggal,))
             
                 if len(data) == 0:
                     st.warning("Belum ada aktivitas pada tanggal ini")
                     st.stop()
             
-                # ambil mapping guru + sekolah
+                # =========================
+                # AMBIL DATA GURU
+                # =========================
+            
                 guru_map = pd.read_sql("SELECT DISTINCT nama, sekolah FROM guru", conn)
-                
                 data = data.merge(guru_map, on="nama", how="left")
-                
+            
+                # =========================
+                # FILTER KELAS
+                # =========================
+            
                 if kelas_filter:
                     data = data[data["kelas"].str.contains(kelas_filter, case=False, na=False)]
-                
-                # filter sekolah aman
+            
+                # =========================
+                # FILTER SEKOLAH
+                # =========================
+            
                 if "sekolah" in data.columns:
                     sekolah_list = sorted(data["sekolah"].dropna().unique().tolist())
                 else:
                     sekolah_list = []
-                
+            
                 sekolah_filter = st.selectbox(
                     "Sekolah",
                     ["Semua"] + sekolah_list
                 )
-                
+            
                 if sekolah_filter != "Semua":
                     data = data[data["sekolah"] == sekolah_filter]
                 
