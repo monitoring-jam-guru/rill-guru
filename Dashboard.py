@@ -862,28 +862,36 @@ elif menu == "Laporan Kadis":
     )
 
     # =========================
-    # REKAP MINGGUAN & BULANAN
-    # =========================
+# AMANKAN FORMAT TANGGAL
+# =========================
+data["tanggal"] = pd.to_datetime(data["tanggal"], errors="coerce")
 
-    data["tanggal"] = pd.to_datetime(data["tanggal"])
+# buang data yang tanggalnya error
+data = data.dropna(subset=["tanggal"])
 
-    mingguan = data.groupby([
-        "nama",
-        pd.Grouper(key="tanggal", freq="W"),
-        "validasi_admin"
-    ]).size().unstack(fill_value=0)
+# =========================
+# REKAP MINGGUAN
+# =========================
+mingguan = data.groupby([
+    "nama",
+    pd.Grouper(key="tanggal", freq="W"),
+    "validasi_admin"
+]).size().unstack(fill_value=0)
 
-    st.subheader("Rekap Mingguan")
-    st.dataframe(mingguan)
+st.subheader("Rekap Mingguan")
+st.dataframe(mingguan)
 
-    bulanan = data.groupby([
-        "nama",
-        pd.Grouper(key="tanggal", freq="M"),
-        "validasi_admin"
-    ]).size().unstack(fill_value=0)
+# =========================
+# REKAP BULANAN (FIX)
+# =========================
+bulanan = data.groupby([
+    "nama",
+    pd.Grouper(key="tanggal", freq="MS"),  # 🔥 FIX DI SINI
+    "validasi_admin"
+]).size().unstack(fill_value=0)
 
-    st.subheader("Rekap Bulanan")
-    st.dataframe(bulanan)
+st.subheader("Rekap Bulanan")
+st.dataframe(bulanan)
 # ==============================
 # MANAJEMEN USER
 # ==============================
