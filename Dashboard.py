@@ -994,11 +994,10 @@ elif menu == "Monitoring Hari Ini":
             
                 tanggal = hari_filter.strftime("%Y-%m-%d")
             
-                data = pd.read_sql("""
-                    SELECT * FROM aktivitas
-                    WHERE tanggal=?
-                    ORDER BY nama,jam
-                """, conn, params=(tanggal,))
+                data = pd.read_sql(
+                query = "SELECT * FROM aktivitas WHERE tanggal = ?"
+
+                data = pd.read_sql(query, conn, params=(tanggal,))
             
                 if len(data) == 0:
                     st.warning("Belum ada aktivitas pada tanggal ini")
