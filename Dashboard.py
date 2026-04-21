@@ -394,7 +394,7 @@ elif menu == "Import Excel":
 
                     cursor.execute(
                     """
-                    INSERT OR REPLACE INTO jadwal
+                    INSERT OR IGNORE INTO jadwal
                     (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
                     VALUES (?,?,?,?,?,?,?)
                     """,
