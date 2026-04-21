@@ -954,11 +954,7 @@ elif menu == "Monitoring Hari Ini":
             
             elif menu == "Monitoring Hari Ini":
             
-                st.title("📊 Monitoring & Validasi Admin")
-            
-                # =========================
-                # FILTER WILAYAH
-                # =========================
+                st.title("Monitoring & Validasi Admin")
             
                 col1, col2, col3, col4 = st.columns(4)
             
@@ -979,9 +975,8 @@ elif menu == "Monitoring Hari Ini":
                 tanggal = hari_filter.strftime("%Y-%m-%d")
             
                 # =========================
-                # QUERY DATA
+                # QUERY DATA (FIX TOTAL)
                 # =========================
-            
                 query = """
                 SELECT * FROM aktivitas
                 WHERE tanggal = ?
@@ -995,62 +990,49 @@ elif menu == "Monitoring Hari Ini":
                     st.stop()
             
                 # =========================
-                # JOIN DATA GURU
+                # GURU + SEKOLAH
                 # =========================
-            
                 guru_map = pd.read_sql("SELECT DISTINCT nama, sekolah FROM guru", conn)
                 data = data.merge(guru_map, on="nama", how="left")
             
                 # =========================
                 # FILTER KELAS
                 # =========================
-            
                 if kelas_filter:
                     data = data[data["kelas"].str.contains(kelas_filter, case=False, na=False)]
             
                 # =========================
                 # FILTER SEKOLAH
                 # =========================
-            
                 if "sekolah" in data.columns:
                     sekolah_list = sorted(data["sekolah"].dropna().unique().tolist())
                 else:
                     sekolah_list = []
             
-                sekolah_filter = st.selectbox(
-                    "Sekolah",
-                    ["Semua"] + sekolah_list
-                )
+                sekolah_filter = st.selectbox("Sekolah", ["Semua"] + sekolah_list)
             
                 if sekolah_filter != "Semua":
                     data = data[data["sekolah"] == sekolah_filter]
             
                 # =========================
-                # INFO FILTER
+                # INFO FILTER (AMAN)
                 # =========================
-            
                 st.info(
-                    f"""
-                    FILTER AKTIF:
-                    - Cabang Dinas : {cabang}
-                    - Kabupaten    : {kabupaten}
-                    - Jenjang      : {jenjang}
-                    - Sekolah      : {sekolah_filter}
-                    - Tanggal      : {tanggal}
-                    """
+                    f"FILTER AKTIF:\n"
+                    f"- Cabang Dinas : {cabang}\n"
+                    f"- Kabupaten    : {kabupaten}\n"
+                    f"- Jenjang      : {jenjang}\n"
+                    f"- Sekolah      : {sekolah_filter}\n"
+                    f"- Tanggal      : {tanggal}"
                 )
             
                 # =========================
                 # TAMPILKAN DATA
                 # =========================
-            
                 for i, row in data.iterrows():
             
                     col1, col2, col3 = st.columns([1, 2, 1])
             
-                    # =========================
-                    # FOTO
-                    # =========================
                     with col1:
                         path = os.path.join("uploads", row.get("foto", ""))
                         if os.path.exists(path):
@@ -1058,9 +1040,6 @@ elif menu == "Monitoring Hari Ini":
                         else:
                             st.warning("Foto tidak ada")
             
-                    # =========================
-                    # INFO DATA
-                    # =========================
                     with col2:
                         st.write(f"**{row['nama']}**")
                         st.write(f"Sekolah: {row.get('sekolah','-')}")
@@ -1069,9 +1048,6 @@ elif menu == "Monitoring Hari Ini":
                         st.write(f"Status: {row.get('status','-')}")
                         st.write(f"Validasi: {row.get('validasi_admin','Belum')}")
             
-                    # =========================
-                    # VALIDASI ADMIN
-                    # =========================
                     with col3:
             
                         pilihan = ["Belum", "Sesuai", "Tidak Sesuai"]
@@ -1090,11 +1066,7 @@ elif menu == "Monitoring Hari Ini":
                         if st.button("Simpan", key=f"btn_{row['id']}"):
             
                             cursor.execute(
-                                """
-                                UPDATE aktivitas
-                                SET validasi_admin = ?
-                                WHERE id = ?
-                                """,
+                                "UPDATE aktivitas SET validasi_admin=? WHERE id=?",
                                 (valid, row["id"])
                             )
             
