@@ -693,19 +693,19 @@ elif menu == "Upload Foto Mengajar":
             """
             INSERT INTO aktivitas
             (nik,nama,tanggal,jam,kelas,jenis,status,foto,jam_jadwal,alasan)
-            VALUES (?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
             """,
             (
-            nik,
-            nama,
-            tanggal_str,
-            jam,
-            st.session_state.kelas_aktif,
-            jenis_absen,
-            status,
-            filename,
-            f"{mulai} - {selesai}",
-            f"Upload {jenis_absen} pada {jam}, jadwal {mulai}-{selesai}"
+                nik,
+                nama,
+                tanggal_str,
+                jam,
+                st.session_state.kelas_aktif,
+                jenis_absen,
+                status,
+                filename,
+                f"{mulai} - {selesai}",
+                f"Upload {jenis_absen} pada {jam}, jadwal {mulai}-{selesai}"
             )
             )
     
