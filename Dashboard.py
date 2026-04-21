@@ -949,20 +949,22 @@ elif menu == "Monitoring Hari Ini":
             )
     
             if st.button("Simpan", key=f"btn_{row['id']}"):
-    
-                cursor.execute("""
+
+                cursor.execute(
+                    """
                     UPDATE aktivitas
                     SET validasi_admin=?
                     WHERE id=?
-                """, 
-                (valid, row["id"]))
-    
+                    """,
+                    (valid, row["id"])
+                )
+            
                 conn.commit()
-    
+            
                 st.success("Validasi tersimpan")
                 st.rerun()
-    
-        st.markdown("---")
+            
+            st.markdown("---")
 
 # ==============================
 # LAPORAN KADIS
