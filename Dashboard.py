@@ -331,7 +331,7 @@ if menu == "Dashboard":
     col3.metric("Tidak Sesuai", tidak)
 
     if len(data_today) > 0:
-        st.bar_chart(data_today.groupby("status").size())
+        st.bar_chart(data_today.groupby("validasi_admin").size())
 
 # ==============================
 # IMPORT EXCEL
