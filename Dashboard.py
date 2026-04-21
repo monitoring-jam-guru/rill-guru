@@ -919,58 +919,53 @@ elif menu == "Monitoring Hari Ini":
                 st.success("Validasi tersimpan")
                 st.rerun()
 
-        st.markdown("---")
-
-            # =========================
-            # TAMPILKAN DATA
-            # =========================
-            
-            for i, row in data.iterrows():
-            
-                col1, col2, col3 = st.columns([1, 2, 1])
-            
-                # FOTO
-                with col1:
-                    path = os.path.join("uploads", row["foto"])
-                    if os.path.exists(path):
-                        st.image(path, width=150)
-                    else:
-                        st.warning("Foto tidak ada")
-            
-                # INFO
-                with col2:
-                    st.write(f"**{row['nama']}**")
-                    st.write(f"Sekolah: {row.get('sekolah','-')}")
-                    st.write(f"Kelas: {row['kelas']}")
-                    st.write(f"Jam: {row['jam']} ({row['jenis']})")
-                    st.write(f"Status Sistem: {row['status']}")
-                    st.write(f"Validasi Admin: {row['validasi_admin']}")
-            
-                # VALIDASI
-                with col3:
-                    pilihan = ["Belum", "Sesuai", "Tidak Sesuai"]
-            
-                    valid = st.selectbox(
-                        "Validasi",
-                        pilihan,
-                        index=pilihan.index(row["validasi_admin"]),
-                        key=f"val{i}"
-                    )
-            
-                    if st.button("Simpan", key=f"btn{i}"):
-            
-                        cursor.execute("""
-                            UPDATE aktivitas
-                            SET validasi_admin=?
-                            WHERE id=?
-                        """, (valid, row["id"]))
-            
-                        conn.commit()
-            
-                        st.success("Validasi tersimpan")
-                        st.rerun()
-            
-                st.markdown("---")
+        # =========================
+        # TAMPILKAN DATA
+        # =========================
+        
+        for i, row in data.iterrows():
+        
+            col1, col2, col3 = st.columns([1, 2, 1])
+        
+            with col1:
+                path = os.path.join("uploads", row["foto"])
+                if os.path.exists(path):
+                    st.image(path, width=150)
+                else:
+                    st.warning("Foto tidak ada")
+        
+            with col2:
+                st.write(f"**{row['nama']}**")
+                st.write(f"Sekolah: {row.get('sekolah','-')}")
+                st.write(f"Kelas: {row['kelas']}")
+                st.write(f"Jam: {row['jam']} ({row['jenis']})")
+                st.write(f"Status Sistem: {row['status']}")
+                st.write(f"Validasi Admin: {row['validasi_admin']}")
+        
+            with col3:
+                pilihan = ["Belum", "Sesuai", "Tidak Sesuai"]
+        
+                valid = st.selectbox(
+                    "Validasi",
+                    pilihan,
+                    index=pilihan.index(row["validasi_admin"]),
+                    key=f"val{i}"
+                )
+        
+                if st.button("Simpan", key=f"btn{i}"):
+        
+                    cursor.execute("""
+                        UPDATE aktivitas
+                        SET validasi_admin=?
+                        WHERE id=?
+                    """, (valid, row["id"]))
+        
+                    conn.commit()
+        
+                    st.success("Validasi tersimpan")
+                    st.rerun()
+        
+            st.markdown("---")
 
             # =========================
             # VALIDASI ADMIN
