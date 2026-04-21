@@ -811,73 +811,89 @@ elif menu == "Monitoring Hari Ini":
     }
 
     # =========================
-    # FILTER UI BERJENJANG
+    # FILTER UI BERJENJANG (SUDAH DIPERBAIKI)
     # =========================
-
+    
     col1, col2, col3, col4 = st.columns(4)
-
+    
     with col1:
         cabang = st.selectbox("Cabang Dinas", cabang_dinas)
-
+    
     with col2:
-        kabupaten = st.selectbox("Kabupaten", kabupaten_map[cabang])
-
+        kabupaten = st.selectbox("Kabupaten", kabupaten_map.get(cabang, []))
+    
     with col3:
-        jenjang = st.selectbox("Jenjang", ["SMA", "SMK", "SMP"])
-
+        jenjang = st.selectbox("Jenjang", ["SMA", "SMK", "SLB"])
+    
     with col4:
-        hari_filter = st.date_input("Hari", datetime.now())
-
+        hari_filter = st.date_input("Tanggal", datetime.now())
+    
     kelas_filter = st.text_input("Kelas (opsional)")
-
+    
     # =========================
-    # AMBIL DATA HARI INI
+    # AMBIL DATA
     # =========================
-
+    
     tanggal = hari_filter.strftime("%Y-%m-%d")
-
+    
     data = pd.read_sql(
         "SELECT * FROM aktivitas WHERE tanggal=? ORDER BY nama,jam",
         conn,
         params=(tanggal,)
     )
-
+    
     if len(data) == 0:
         st.warning("Belum ada aktivitas pada tanggal ini")
         st.stop()
-
+    
     # =========================
-    # FILTER LANJUT (SEKOLAH BERDASARKAN NPSN)
+    # AMBIL DATA SEKOLAH (BERBASIS NPSN / GURU)
     # =========================
-    # NOTE: sekolah berasal dari tabel guru (NPSN dari import jadwal)
-
-    guru_map = pd.read_sql("SELECT nama,sekolah FROM guru", conn)
-
+    
+    guru_map = pd.read_sql("SELECT DISTINCT nama, sekolah FROM guru", conn)
+    
+    # merge aman
     data = data.merge(guru_map, on="nama", how="left")
-
-    if kelas_filter != "":
+    
+    # =========================
+    # FILTER TAMBAHAN
+    # =========================
+    
+    if kelas_filter:
         data = data[data["kelas"].str.contains(kelas_filter, case=False, na=False)]
-
+    
+    # filter sekolah (opsional tapi penting)
+    sekolah_list = sorted(data["sekolah"].dropna().unique().tolist())
+    
+    sekolah_filter = st.selectbox(
+        "Sekolah (berdasarkan data upload jadwal)",
+        ["Semua"] + sekolah_list
+    )
+    
+    if sekolah_filter != "Semua":
+        data = data[data["sekolah"] == sekolah_filter]
+    
     # =========================
-    # FILTER TAMPILAN FINAL
+    # FILTER FINAL INFO
     # =========================
-
+    
     st.info(f"""
-    Filter Aktif:
-    - Cabang Dinas: {cabang}
-    - Kabupaten: {kabupaten}
-    - Jenjang: {jenjang}
-    - Tanggal: {tanggal}
+    📊 FILTER AKTIF:
+    - Cabang Dinas : {cabang}
+    - Kabupaten    : {kabupaten}
+    - Jenjang      : {jenjang}
+    - Sekolah      : {sekolah_filter}
+    - Tanggal      : {tanggal}
     """)
-
+    
     # =========================
     # TAMPILKAN DATA
     # =========================
-
+    
     for i, row in data.iterrows():
-
+    
         col1, col2, col3 = st.columns([1, 2, 1])
-
+    
         # FOTO
         with col1:
             path = os.path.join("uploads", row["foto"])
@@ -885,37 +901,41 @@ elif menu == "Monitoring Hari Ini":
                 st.image(path, width=150)
             else:
                 st.warning("Foto tidak ada")
-
+    
         # INFO
         with col2:
             st.write(f"**{row['nama']}**")
             st.write(f"Sekolah: {row.get('sekolah','-')}")
-            st.write(f"Kelas: {row['kelas']}")
-            st.write(f"Jam: {row['jam']} ({row['jenis']})")
-            st.write(f"Status Sistem: {row['status']}")
-            st.write(f"Validasi Admin: {row['validasi_admin']}")
-
+            st.write(f"Kelas: {row.get('kelas','-')}")
+            st.write(f"Jam: {row.get('jam','-')} ({row.get('jenis','-')})")
+            st.write(f"Status Sistem: {row.get('status','-')}")
+            st.write(f"Validasi Admin: {row.get('validasi_admin','Belum')}")
+    
         # VALIDASI
         with col3:
             pilihan = ["Belum", "Sesuai", "Tidak Sesuai"]
-
+    
+            current = row.get("validasi_admin", "Belum")
+            if current not in pilihan:
+                current = "Belum"
+    
             valid = st.selectbox(
                 "Validasi",
                 pilihan,
-                index=pilihan.index(row["validasi_admin"]),
+                index=pilihan.index(current),
                 key=f"val{i}"
             )
-
+    
             if st.button("Simpan", key=f"btn{i}"):
-
+    
                 cursor.execute("""
                     UPDATE aktivitas
                     SET validasi_admin=?
                     WHERE id=?
                 """, (valid, row["id"]))
-
+    
                 conn.commit()
-
+    
                 st.success("Validasi tersimpan")
                 st.rerun()
 
