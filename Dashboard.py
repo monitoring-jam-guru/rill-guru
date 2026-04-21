@@ -729,16 +729,23 @@ elif menu == "Monitoring Hari Ini":
         for i,row in data.iterrows():
 
             if row["status"]=="Sesuai":
-
-                st.success(
-                f"{row['nama']} - {row['jam']} - {row['jenis']}"
-                )
-
+                st.success(f"{row['nama']} - {row['jam']} - {row['jenis']}")
             else:
-
-                st.error(
-                f"{row['nama']} - {row['jam']} - {row['jenis']}"
-                )
+                st.error(f"{row['nama']} - {row['jam']} - {row['jenis']}")
+        
+            # =========================
+            # TAMPILKAN FOTO
+            # =========================
+            if row["foto"]:
+        
+                path = os.path.join("uploads", row["foto"])
+        
+                if os.path.exists(path):
+                    st.image(path, width=250)
+                else:
+                    st.warning("Foto tidak ditemukan di server")
+        
+            st.markdown("---")
 
 # ==============================
 # LAPORAN PDF
