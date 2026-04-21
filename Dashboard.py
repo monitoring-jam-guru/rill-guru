@@ -1027,14 +1027,17 @@ elif menu == "Monitoring Hari Ini":
                     data = data[data["sekolah"] == sekolah_filter]
             
                 # info filter (tanpa emoji biar aman)
-                st.info(f"""
+                info = f"""
                 FILTER AKTIF:
                 - Cabang Dinas : {cabang}
                 - Kabupaten    : {kabupaten}
                 - Jenjang      : {jenjang}
                 - Sekolah      : {sekolah_filter}
                 - Tanggal      : {tanggal}
-                """)
+                """
+                
+                st.info(info)
+                
             
                 # ==============================
                 # TAMPILKAN DATA (FIXED LOOP)
