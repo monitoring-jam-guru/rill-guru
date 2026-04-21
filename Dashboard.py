@@ -82,6 +82,7 @@ sekolah TEXT
 """)
 
 conn.commit()
+
 # ==============================
 # TAMBAH KOLOM JIKA BELUM ADA
 # ==============================
@@ -90,6 +91,16 @@ try:
     ALTER TABLE aktivitas 
     ADD COLUMN validasi_admin TEXT DEFAULT 'Belum'
     """)
+    conn.commit()
+except:
+    pass
+
+# ==============================
+# TAMBAHAN KOLOM LAPORAN KADIS
+# ==============================
+try:
+    cursor.execute("ALTER TABLE aktivitas ADD COLUMN jam_jadwal TEXT")
+    cursor.execute("ALTER TABLE aktivitas ADD COLUMN alasan TEXT")
     conn.commit()
 except:
     pass
@@ -680,7 +691,7 @@ elif menu == "Upload Foto Mengajar":
             cursor.execute(
             """
             INSERT INTO aktivitas
-            (nik,nama,tanggal,jam,kelas,jenis,status,foto)
+            (nik,nama,tanggal,jam,kelas,jenis,status,foto,jam_jadwal,alasan)
             VALUES (?,?,?,?,?,?,?,?)
             """,
             (
@@ -691,7 +702,9 @@ elif menu == "Upload Foto Mengajar":
             st.session_state.kelas_aktif,
             jenis_absen,
             status,
-            filename
+            filename,
+            f"{mulai} - {selesai}",
+            f"Upload {jenis_absen} pada {jam}, jadwal {mulai}-{selesai}"
             )
             )
     
@@ -794,46 +807,84 @@ elif menu == "Monitoring Hari Ini":
 # LAPORAN PDF
 # ==============================
 
-elif menu == "Laporan Kadis":
+st.title("📊 Laporan Rekap Kadis")
 
-    st.title("Laporan Monitoring")
+data = pd.read_sql("SELECT * FROM aktivitas", conn)
 
-    hari_ini=datetime.now().strftime("%Y-%m-%d")
+if len(data) == 0:
+    st.warning("Belum ada data")
+    st.stop()
 
-    data=pd.read_sql(
-    "SELECT * FROM aktivitas WHERE tanggal=?",
-    conn,
-    params=(hari_ini,)
-    )
+# hanya yang sudah divalidasi admin
+data = data[data["validasi_admin"] != "Belum"]
 
-    if st.button("Generate PDF"):
+# =========================
+# HITUNG REKAP
+# =========================
 
-        pdf=FPDF()
+rekap_list = []
 
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
+for nama in data["nama"].unique():
 
-        pdf.cell(200,10,"Laporan Monitoring Guru",ln=True)
-        pdf.cell(200,10,f"Tanggal: {hari_ini}",ln=True)
+    df = data[data["nama"] == nama]
 
-        pdf.ln(10)
+    nik = df.iloc[0]["nik"]
 
-        for i,row in data.iterrows():
+    sesuai = len(df[df["validasi_admin"] == "Sesuai"])
+    tidak = len(df[df["validasi_admin"] == "Tidak Sesuai"])
 
-            text=f"{row['nama']} - {row['jam']} - {row['status']}"
+    kelas_sesuai = ", ".join(df[df["validasi_admin"]=="Sesuai"]["kelas"].unique())
+    kelas_tidak = ", ".join(df[df["validasi_admin"]=="Tidak Sesuai"]["kelas"].unique())
 
-            pdf.cell(200,10,text,ln=True)
+    alasan = "\n".join(df[df["validasi_admin"]=="Tidak Sesuai"]["alasan"].dropna().unique())
 
-        pdf.output("laporan.pdf")
+    rekap_list.append({
+        "Nama Guru": nama,
+        "NIK": nik,
+        "Jam Sesuai": sesuai,
+        "Jam Tidak Sesuai": tidak,
+        "Kelas Sesuai": kelas_sesuai,
+        "Kelas Tidak Sesuai": kelas_tidak,
+        "Alasan": alasan
+    })
 
-        with open("laporan.pdf","rb") as f:
+rekap = pd.DataFrame(rekap_list)
 
-            st.download_button(
-            "Download PDF",
-            f,
-            file_name="laporan_monitoring.pdf"
-            )
+st.dataframe(rekap)
 
+# =========================
+# DOWNLOAD CSV
+# =========================
+
+csv = rekap.to_csv(index=False).encode("utf-8")
+
+st.download_button(
+    "Download Rekap Kadis",
+    csv,
+    "laporan_kadis.csv",
+    "text/csv"
+)
+data["tanggal"] = pd.to_datetime(data["tanggal"])
+
+# Mingguan
+mingguan = data.groupby([
+    "nama",
+    pd.Grouper(key="tanggal", freq="W"),
+    "validasi_admin"
+]).size().unstack(fill_value=0)
+
+st.subheader("Rekap Mingguan")
+st.dataframe(mingguan)
+
+# Bulanan
+bulanan = data.groupby([
+    "nama",
+    pd.Grouper(key="tanggal", freq="M"),
+    "validasi_admin"
+]).size().unstack(fill_value=0)
+
+st.subheader("Rekap Bulanan")
+st.dataframe(bulanan)
 # ==============================
 # MANAJEMEN USER
 # ==============================
