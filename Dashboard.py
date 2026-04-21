@@ -1006,54 +1006,54 @@ elif menu == "Monitoring Hari Ini":
             
                 # ambil mapping guru + sekolah
                 guru_map = pd.read_sql("SELECT DISTINCT nama, sekolah FROM guru", conn)
-            
+                
                 data = data.merge(guru_map, on="nama", how="left")
-            
+                
                 if kelas_filter:
                     data = data[data["kelas"].str.contains(kelas_filter, case=False, na=False)]
-            
+                
                 # filter sekolah aman
                 if "sekolah" in data.columns:
                     sekolah_list = sorted(data["sekolah"].dropna().unique().tolist())
                 else:
                     sekolah_list = []
-            
+                
                 sekolah_filter = st.selectbox(
                     "Sekolah",
                     ["Semua"] + sekolah_list
                 )
-            
+                
                 if sekolah_filter != "Semua":
                     data = data[data["sekolah"] == sekolah_filter]
-            
-                # info filter (tanpa emoji biar aman)
-                info = f"""
-                FILTER AKTIF:
-                - Cabang Dinas : {cabang}
-                - Kabupaten    : {kabupaten}
-                - Jenjang      : {jenjang}
-                - Sekolah      : {sekolah_filter}
-                - Tanggal      : {tanggal}
-                """
+                
+                # =========================
+                # INFO FILTER (AMAN 100%)
+                # =========================
+                info = (
+                    "FILTER AKTIF:\n"
+                    f"- Cabang Dinas : {cabang}\n"
+                    f"- Kabupaten    : {kabupaten}\n"
+                    f"- Jenjang      : {jenjang}\n"
+                    f"- Sekolah      : {sekolah_filter}\n"
+                    f"- Tanggal      : {tanggal}"
+                )
                 
                 st.info(info)
                 
-            
                 # ==============================
-                # TAMPILKAN DATA (FIXED LOOP)
+                # TAMPILKAN DATA
                 # ==============================
-            
                 for i, row in data.iterrows():
-            
+                
                     col1, col2, col3 = st.columns([1, 2, 1])
-            
+                
                     with col1:
                         path = os.path.join("uploads", row.get("foto", ""))
                         if os.path.exists(path):
                             st.image(path, width=150)
                         else:
                             st.warning("Foto tidak ada")
-            
+                
                     with col2:
                         st.write(f"**{row['nama']}**")
                         st.write(f"Sekolah: {row.get('sekolah','-')}")
@@ -1061,35 +1061,35 @@ elif menu == "Monitoring Hari Ini":
                         st.write(f"Jam: {row.get('jam','-')} ({row.get('jenis','-')})")
                         st.write(f"Status: {row.get('status','-')}")
                         st.write(f"Validasi: {row.get('validasi_admin','Belum')}")
-            
+                
                     with col3:
-            
+                
                         pilihan = ["Belum", "Sesuai", "Tidak Sesuai"]
-            
+                
                         current = row.get("validasi_admin", "Belum")
                         if current not in pilihan:
                             current = "Belum"
-            
+                
                         valid = st.selectbox(
                             "Validasi",
                             pilihan,
                             index=pilihan.index(current),
                             key=f"val_{row['id']}"
                         )
-            
+                
                         if st.button("Simpan", key=f"btn_{row['id']}"):
-
+                
                             cursor.execute(
                                 "UPDATE aktivitas SET validasi_admin=? WHERE id=?",
                                 (valid, row["id"])
                             )
-                        
+                
                             conn.commit()
-                        
+                
                             st.success("Validasi tersimpan")
                             st.rerun()
-                        
-                        st.markdown("---")
+                
+                    st.markdown("---")
             
             
             # ==============================
