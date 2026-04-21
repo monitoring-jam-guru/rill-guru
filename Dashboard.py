@@ -82,7 +82,17 @@ sekolah TEXT
 """)
 
 conn.commit()
-
+# ==============================
+# TAMBAH KOLOM JIKA BELUM ADA
+# ==============================
+try:
+    cursor.execute("""
+    ALTER TABLE aktivitas 
+    ADD COLUMN validasi_admin TEXT DEFAULT 'Belum'
+    """)
+    conn.commit()
+except:
+    pass
 # ==============================
 # USER DEFAULT
 # ==============================
@@ -750,7 +760,7 @@ elif menu == "Monitoring Hari Ini":
                 st.write(f"Kelas: {row['kelas']}")
                 st.write(f"Jam: {row['jam']} ({row['jenis']})")
                 st.write(f"Status Sistem: {row['status']}")
-                st.write(f"Validasi Admin: {row['validasi_admin']}")
+                st.write(f"Validasi Admin: {row.get('validasi_admin','Belum')}")
 
             # =========================
             # VALIDASI ADMIN
