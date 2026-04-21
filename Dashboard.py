@@ -849,15 +849,67 @@ elif menu == "Laporan Kadis":
 
     st.title("📊 Laporan Rekap Kadis")
 
+    # =========================
+    # FILTER
+    # =========================
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        filter_tanggal = st.date_input("Pilih Tanggal (opsional)", value=None)
+
+    with col2:
+        filter_bulan = st.selectbox(
+            "Pilih Bulan",
+            ["Semua","01","02","03","04","05","06","07","08","09","10","11","12"]
+        )
+
+    with col3:
+        filter_tahun = st.selectbox(
+            "Pilih Tahun",
+            ["Semua"] + sorted(pd.to_datetime(aktivitas["tanggal"], errors="coerce").dt.year.dropna().astype(int).astype(str).unique())
+        )
+
+    # =========================
+    # LOAD DATA
+    # =========================
     data = pd.read_sql("SELECT * FROM aktivitas", conn)
 
     if len(data) == 0:
         st.warning("Belum ada data")
         st.stop()
 
-    # hanya yang sudah divalidasi admin
+    # =========================
+    # FORMAT TANGGAL
+    # =========================
+    data["tanggal"] = pd.to_datetime(data["tanggal"], errors="coerce")
+    data = data.dropna(subset=["tanggal"])
+
+    # =========================
+    # FILTER DATA
+    # =========================
+    if filter_tanggal:
+        data = data[data["tanggal"].dt.date == filter_tanggal]
+
+    if filter_bulan != "Semua":
+        data = data[data["tanggal"].dt.strftime("%m") == filter_bulan]
+
+    if filter_tahun != "Semua":
+        data = data[data["tanggal"].dt.strftime("%Y") == filter_tahun]
+
+    st.info(f"Filter Aktif → Tanggal: {filter_tanggal}, Bulan: {filter_bulan}, Tahun: {filter_tahun}")
+
+    # =========================
+    # HANYA VALIDASI ADMIN
+    # =========================
     data = data[data["validasi_admin"] != "Belum"]
 
+    if len(data) == 0:
+        st.warning("Tidak ada data sesuai filter")
+        st.stop()
+
+    # =========================
+    # REKAP UTAMA
+    # =========================
     rekap_list = []
 
     for nama in data["nama"].unique():
@@ -869,8 +921,8 @@ elif menu == "Laporan Kadis":
         sesuai = len(df[df["validasi_admin"] == "Sesuai"])
         tidak = len(df[df["validasi_admin"] == "Tidak Sesuai"])
 
-        kelas_sesuai = ", ".join(df[df["validasi_admin"]=="Sesuai"]["kelas"].unique())
-        kelas_tidak = ", ".join(df[df["validasi_admin"]=="Tidak Sesuai"]["kelas"].unique())
+        kelas_sesuai = ", ".join(df[df["validasi_admin"]=="Sesuai"]["kelas"].dropna().unique())
+        kelas_tidak = ", ".join(df[df["validasi_admin"]=="Tidak Sesuai"]["kelas"].dropna().unique())
 
         alasan = "\n".join(df[df["validasi_admin"]=="Tidak Sesuai"]["alasan"].dropna().unique())
 
@@ -886,26 +938,23 @@ elif menu == "Laporan Kadis":
 
     rekap = pd.DataFrame(rekap_list)
 
-    st.dataframe(rekap)
+    st.subheader("Rekap Utama")
+    st.dataframe(rekap, use_container_width=True)
 
+    # =========================
     # DOWNLOAD CSV
+    # =========================
     csv = rekap.to_csv(index=False).encode("utf-8")
+
+    nama_file = f"laporan_kadis_{filter_tahun}_{filter_bulan}.csv"
 
     st.download_button(
         "Download Rekap Kadis",
         csv,
-        "laporan_kadis.csv",
+        nama_file,
         "text/csv"
     )
 
-    # =========================
-    # AMANKAN FORMAT TANGGAL
-    # =========================
-    data["tanggal"] = pd.to_datetime(data["tanggal"], errors="coerce")
-    
-    # buang data yang tanggalnya error
-    data = data.dropna(subset=["tanggal"])
-    
     # =========================
     # REKAP MINGGUAN
     # =========================
@@ -914,21 +963,21 @@ elif menu == "Laporan Kadis":
         pd.Grouper(key="tanggal", freq="W"),
         "validasi_admin"
     ]).size().unstack(fill_value=0)
-    
+
     st.subheader("Rekap Mingguan")
-    st.dataframe(mingguan)
-    
+    st.dataframe(mingguan, use_container_width=True)
+
     # =========================
-    # REKAP BULANAN (FIX)
+    # REKAP BULANAN (AMAN)
     # =========================
     bulanan = data.groupby([
         "nama",
-        pd.Grouper(key="tanggal", freq="MS"),  # 🔥 FIX DI SINI
+        pd.Grouper(key="tanggal", freq="MS"),
         "validasi_admin"
     ]).size().unstack(fill_value=0)
-    
+
     st.subheader("Rekap Bulanan")
-    st.dataframe(bulanan)
+    st.dataframe(bulanan, use_container_width=True)
     # ==============================
     # MANAJEMEN USER
     # ==============================
