@@ -841,7 +841,21 @@ elif menu == "Monitoring Hari Ini":
         conn,
         params=(tanggal,)
     )
+    # =========================
+    # AMBIL DATA SEKOLAH
+    # =========================
+    guru_map = pd.read_sql("SELECT nama, sekolah FROM guru", conn)
+    data = data.merge(guru_map, on="nama", how="left")
     
+    # =========================
+    # FILTER JENJANG (TAMBAHAN WAJIB)
+    # =========================
+    if jenjang == "SMK":
+        data = data[data["sekolah"].str.contains("SMK", na=False)]
+    elif jenjang == "SMA":
+        data = data[data["sekolah"].str.contains("SMA", na=False)]
+    elif jenjang == "SLB":
+        data = data[data["sekolah"].str.contains("SLB", na=False)]
     if len(data) == 0:
         st.warning("Belum ada aktivitas pada tanggal ini")
         st.stop()
@@ -891,10 +905,9 @@ elif menu == "Monitoring Hari Ini":
     # =========================
     
     for i, row in data.iterrows():
-    
+
         col1, col2, col3 = st.columns([1, 2, 1])
     
-        # FOTO
         with col1:
             path = os.path.join("uploads", row["foto"])
             if os.path.exists(path):
@@ -902,7 +915,6 @@ elif menu == "Monitoring Hari Ini":
             else:
                 st.warning("Foto tidak ada")
     
-        # INFO
         with col2:
             st.write(f"**{row['nama']}**")
             st.write(f"Sekolah: {row.get('sekolah','-')}")
@@ -911,7 +923,6 @@ elif menu == "Monitoring Hari Ini":
             st.write(f"Status Sistem: {row.get('status','-')}")
             st.write(f"Validasi Admin: {row.get('validasi_admin','Belum')}")
     
-        # VALIDASI
         with col3:
             pilihan = ["Belum", "Sesuai", "Tidak Sesuai"]
     
@@ -923,10 +934,10 @@ elif menu == "Monitoring Hari Ini":
                 "Validasi",
                 pilihan,
                 index=pilihan.index(current),
-                key=f"val{i}"
+                key=f"val_{row['id']}"   # 🔥 penting: pakai id biar tidak duplicate
             )
     
-            if st.button("Simpan", key=f"btn{i}"):
+            if st.button("Simpan", key=f"btn_{row['id']}"):
     
                 cursor.execute("""
                     UPDATE aktivitas
@@ -938,54 +949,8 @@ elif menu == "Monitoring Hari Ini":
     
                 st.success("Validasi tersimpan")
                 st.rerun()
-
-        # =========================
-        # TAMPILKAN DATA
-        # =========================
-        
-        for i, row in data.iterrows():
-        
-            col1, col2, col3 = st.columns([1, 2, 1])
-        
-            with col1:
-                path = os.path.join("uploads", row["foto"])
-                if os.path.exists(path):
-                    st.image(path, width=150)
-                else:
-                    st.warning("Foto tidak ada")
-        
-            with col2:
-                st.write(f"**{row['nama']}**")
-                st.write(f"Sekolah: {row.get('sekolah','-')}")
-                st.write(f"Kelas: {row['kelas']}")
-                st.write(f"Jam: {row['jam']} ({row['jenis']})")
-                st.write(f"Status Sistem: {row['status']}")
-                st.write(f"Validasi Admin: {row['validasi_admin']}")
-        
-            with col3:
-                pilihan = ["Belum", "Sesuai", "Tidak Sesuai"]
-        
-                valid = st.selectbox(
-                    "Validasi",
-                    pilihan,
-                    index=pilihan.index(row["validasi_admin"]),
-                    key=f"val{i}"
-                )
-        
-                if st.button("Simpan", key=f"btn{i}"):
-        
-                    cursor.execute("""
-                        UPDATE aktivitas
-                        SET validasi_admin=?
-                        WHERE id=?
-                    """, (valid, row["id"]))
-        
-                    conn.commit()
-        
-                    st.success("Validasi tersimpan")
-                    st.rerun()
-        
-            st.markdown("---")
+    
+        st.markdown("---")
 
             # =========================
             # VALIDASI ADMIN
