@@ -305,9 +305,16 @@ if menu == "Dashboard":
     st.title("DIMORA-SU")
     st.caption("Digital Monitoring Jam Mengajar Guru")
 
-    hari_ini = datetime.now().strftime("%Y-%m-%d")
+    # 🔥 SAMAKAN WAKTU (WIB)
+    hari_ini = (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d")
 
     data_today = aktivitas[aktivitas["tanggal"] == hari_ini]
+
+    # 🔥 kalau kosong, tampilkan debug
+    if len(data_today) == 0:
+        st.warning("Tidak ada data hari ini")
+        st.write("DEBUG tanggal:", hari_ini)
+        st.write("Contoh tanggal di DB:", aktivitas["tanggal"].unique()[:5])
 
     sesuai = len(data_today[data_today["status"]=="Sesuai"])
     tidak = len(data_today[data_today["status"]=="Tidak Sesuai"])
@@ -318,7 +325,8 @@ if menu == "Dashboard":
     col2.metric("Mengajar Sesuai", sesuai)
     col3.metric("Tidak Sesuai", tidak)
 
-    st.bar_chart(data_today.groupby("status").size())
+    if len(data_today) > 0:
+        st.bar_chart(data_today.groupby("status").size())
 
 # ==============================
 # IMPORT EXCEL
