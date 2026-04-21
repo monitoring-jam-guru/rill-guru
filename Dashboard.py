@@ -952,34 +952,6 @@ elif menu == "Monitoring Hari Ini":
     
         st.markdown("---")
 
-            # =========================
-            # VALIDASI ADMIN
-            # =========================
-            with col3:
-                pilihan = ["Belum","Sesuai","Tidak Sesuai"]
-
-                valid = st.selectbox(
-                    "Validasi",
-                    pilihan,
-                    index=pilihan.index(row["validasi_admin"]),
-                    key=f"val{i}"
-                )
-
-                if st.button("Simpan", key=f"btn{i}"):
-
-                    cursor.execute("""
-                    UPDATE aktivitas
-                    SET validasi_admin=?
-                    WHERE id=?
-                    """,(valid,row["id"]))
-
-                    conn.commit()
-
-                    st.success("Validasi tersimpan")
-                    st.rerun()
-
-            st.markdown("---")
-
 # ==============================
 # LAPORAN KADIS
 # ==============================
