@@ -954,7 +954,8 @@ elif menu == "Monitoring Hari Ini":
                     UPDATE aktivitas
                     SET validasi_admin=?
                     WHERE id=?
-                """, (valid, row["id"]))
+                """, 
+                (valid, row["id"]))
     
                 conn.commit()
     
