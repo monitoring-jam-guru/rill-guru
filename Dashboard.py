@@ -654,9 +654,11 @@ elif menu == "Upload Foto Mengajar":
                 path,
                 f"{nama} {st.session_state.kelas_aktif} {tanggal_str} {jam}"
             )
-    
-            hasil_upload = upload_drive(path)
-    
+            
+            # NONAKTIFKAN GOOGLE DRIVE (penyebab crash)
+            # hasil_upload = upload_drive(path)
+            
+            hasil_upload = "Upload lokal berhasil"
             st.info(hasil_upload)
     
             # =========================
