@@ -701,7 +701,31 @@ elif menu == "Upload Foto Mengajar":
             # =========================
             # SIMPAN DATABASE
             # =========================
-    
+            
+            # 🔥 ambil hari indonesia
+            hari_map = {
+                "Monday": "Senin",
+                "Tuesday": "Selasa",
+                "Wednesday": "Rabu",
+                "Thursday": "Kamis",
+                "Friday": "Jumat",
+                "Saturday": "Sabtu",
+                "Sunday": "Minggu"
+            }
+            
+            hari_nama = hari_map[waktu.strftime("%A")]
+            tanggal_format = waktu.strftime("%d-%m-%Y")
+            
+            # 🔥 buat alasan otomatis
+            if status == "Tidak Sesuai":
+                alasan_text = (
+                    f"{hari_nama}, {tanggal_format} | "
+                    f"Upload {jenis_absen} pukul {jam}, "
+                    f"jadwal {mulai}-{selesai}"
+                )
+            else:
+                alasan_text = "Sesuai Jadwal"
+            
             cursor.execute(
             """
             INSERT INTO aktivitas
@@ -718,12 +742,12 @@ elif menu == "Upload Foto Mengajar":
                 status,
                 filename,
                 f"{mulai} - {selesai}",
-                f"Upload {jenis_absen} pada {jam}, jadwal {mulai}-{selesai}"
+                alasan_text
             )
             )
-    
+            
             conn.commit()
-    
+            
             st.success(f"Absensi {jenis_absen} berhasil - Status : {status}")
 
 # ==============================
