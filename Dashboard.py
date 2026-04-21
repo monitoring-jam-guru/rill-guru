@@ -902,7 +902,6 @@ elif menu == "Monitoring Hari Ini":
     # =========================
     # FILTER FINAL INFO
     # =========================
-    
     st.info(f"""
     📊 FILTER AKTIF:
     - Cabang Dinas : {cabang}
