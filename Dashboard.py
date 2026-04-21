@@ -307,17 +307,22 @@ if menu == "Dashboard":
 
     # 🔥 SAMAKAN WAKTU (WIB)
     hari_ini = (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d")
-
+    
     data_today = aktivitas[aktivitas["tanggal"] == hari_ini]
-
-    # 🔥 kalau kosong, tampilkan debug
+    
+    # 🔥 DEBUG kalau kosong
     if len(data_today) == 0:
         st.warning("Tidak ada data hari ini")
         st.write("DEBUG tanggal:", hari_ini)
         st.write("Contoh tanggal di DB:", aktivitas["tanggal"].unique()[:5])
-
-    sesuai = len(data_todaydata_today["validasi_admin"]=="Sesuai"])
-    tidak = len(data_todaydata_today["validasi_admin"]=="Tidak Sesuai"])
+    
+    # 🔥 ANTISIPASI kalau kolom belum ada
+    if "validasi_admin" not in data_today.columns:
+        data_today["validasi_admin"] = "Belum"
+    
+    # 🔥 PERHITUNGAN YANG BENAR
+    sesuai = len(data_today[data_today["validasi_admin"] == "Sesuai"])
+    tidak = len(data_today[data_today["validasi_admin"] == "Tidak Sesuai"])
 
     col1,col2,col3 = st.columns(3)
 
