@@ -862,39 +862,39 @@ elif menu == "Laporan Kadis":
     )
 
     # =========================
-# AMANKAN FORMAT TANGGAL
-# =========================
-data["tanggal"] = pd.to_datetime(data["tanggal"], errors="coerce")
-
-# buang data yang tanggalnya error
-data = data.dropna(subset=["tanggal"])
-
-# =========================
-# REKAP MINGGUAN
-# =========================
-mingguan = data.groupby([
-    "nama",
-    pd.Grouper(key="tanggal", freq="W"),
-    "validasi_admin"
-]).size().unstack(fill_value=0)
-
-st.subheader("Rekap Mingguan")
-st.dataframe(mingguan)
-
-# =========================
-# REKAP BULANAN (FIX)
-# =========================
-bulanan = data.groupby([
-    "nama",
-    pd.Grouper(key="tanggal", freq="MS"),  # 🔥 FIX DI SINI
-    "validasi_admin"
-]).size().unstack(fill_value=0)
-
-st.subheader("Rekap Bulanan")
-st.dataframe(bulanan)
-# ==============================
-# MANAJEMEN USER
-# ==============================
+    # AMANKAN FORMAT TANGGAL
+    # =========================
+    data["tanggal"] = pd.to_datetime(data["tanggal"], errors="coerce")
+    
+    # buang data yang tanggalnya error
+    data = data.dropna(subset=["tanggal"])
+    
+    # =========================
+    # REKAP MINGGUAN
+    # =========================
+    mingguan = data.groupby([
+        "nama",
+        pd.Grouper(key="tanggal", freq="W"),
+        "validasi_admin"
+    ]).size().unstack(fill_value=0)
+    
+    st.subheader("Rekap Mingguan")
+    st.dataframe(mingguan)
+    
+    # =========================
+    # REKAP BULANAN (FIX)
+    # =========================
+    bulanan = data.groupby([
+        "nama",
+        pd.Grouper(key="tanggal", freq="MS"),  # 🔥 FIX DI SINI
+        "validasi_admin"
+    ]).size().unstack(fill_value=0)
+    
+    st.subheader("Rekap Bulanan")
+    st.dataframe(bulanan)
+    # ==============================
+    # MANAJEMEN USER
+    # ==============================
 
 elif menu == "Manajemen User":
 
