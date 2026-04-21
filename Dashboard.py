@@ -88,22 +88,23 @@ conn.commit()
 # ==============================
 try:
     cursor.execute("""
-    ALTER TABLE aktivitas 
-    ADD COLUMN validasi_admin TEXT DEFAULT 'Belum'
+        ALTER TABLE aktivitas 
+        ADD COLUMN validasi_admin TEXT DEFAULT 'Belum'
     """)
-    conn.commit()
 except:
     pass
 
-# ==============================
-# TAMBAHAN KOLOM LAPORAN KADIS
-# ==============================
 try:
     cursor.execute("ALTER TABLE aktivitas ADD COLUMN jam_jadwal TEXT")
-    cursor.execute("ALTER TABLE aktivitas ADD COLUMN alasan TEXT")
-    conn.commit()
 except:
     pass
+
+try:
+    cursor.execute("ALTER TABLE aktivitas ADD COLUMN alasan TEXT")
+except:
+    pass
+
+conn.commit()
 # ==============================
 # USER DEFAULT
 # ==============================
