@@ -953,19 +953,20 @@ elif menu == "Monitoring Hari Ini":
             # ==============================
             
             if st.button("Simpan", key=f"btn_{row['id']}"):
-            
-                cursor.execute("""
-                    UPDATE aktivitas
-                    SET validasi_admin = ?
-                    WHERE id = ?
-                """, (valid, row["id"]))
-            
-                conn.commit()
-            
-                st.success("Validasi tersimpan")
-                st.rerun()
-            
-            st.markdown("---")
+
+            query = """
+            UPDATE aktivitas
+            SET validasi_admin = ?
+            WHERE id = ?
+            """
+        
+            cursor.execute(query, (valid, row["id"]))
+            conn.commit()
+        
+            st.success("Validasi tersimpan")
+            st.rerun()
+        
+        st.markdown("---")
             
             
             # ==============================
