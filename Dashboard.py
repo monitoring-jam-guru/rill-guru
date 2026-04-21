@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS guru(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 nik TEXT UNIQUE,
 nama TEXT,
+jenjang TEXT,
 sekolah TEXT,
 mapel TEXT,
 lat REAL,
@@ -371,7 +372,7 @@ elif menu == "Import Excel":
 
                     nik = str(row.get("nik","")).strip()
                     nama = str(row.get("nama","")).strip()
-                    sekolah = str(row.get("sekolah","")).strip()
+                    jenjang = str(row.get("jenjang","")).strip()
                     mapel = str(row.get("mapel","")).strip()
 
                     lat = float(row.get("lat",0))
@@ -382,12 +383,14 @@ elif menu == "Import Excel":
 
                     cursor.execute(
                     """
+                    cursor.execute(
+                    """
                     INSERT OR REPLACE INTO guru
-                    (nik,nama,sekolah,mapel,lat,lon)
-                    VALUES (?,?,?,?,?,?)
+                    (nik,nama,jenjang,sekolah,mapel,lat,lon)
+                    VALUES (?,?,?,?,?,?,?)
                     """,
-                    (nik,nama,sekolah,mapel,lat,lon)
-                    )
+                    (nik,nama,jenjang,sekolah,mapel,lat,lon)
+)
 
                     cursor.execute(
                     """
@@ -844,8 +847,13 @@ elif menu == "Monitoring Hari Ini":
     # =========================
     # AMBIL DATA SEKOLAH
     # =========================
-    guru_map = pd.read_sql("SELECT nama, sekolah FROM guru", conn)
+    guru_map = pd.read_sql("SELECT nama, sekolah, jenjang FROM guru", conn)
     data = data.merge(guru_map, on="nama", how="left")
+    # =========================
+    # FILTER JENJANG DARI DATABASE (FIXED)
+    # =========================
+    if jenjang != "Semua":
+        data = data[data["jenjang"] == jenjang]
     
     # =========================
     # FILTER JENJANG (TAMBAHAN WAJIB)
@@ -877,7 +885,11 @@ elif menu == "Monitoring Hari Ini":
         data = data[data["kelas"].str.contains(kelas_filter, case=False, na=False)]
     
     # filter sekolah (opsional tapi penting)
-    sekolah_list = sorted(data["sekolah"].dropna().unique().tolist())
+    
+    if "sekolah" in data.columns:
+        sekolah_list = sorted(data["sekolah"].dropna().unique().tolist())
+    else:
+        sekolah_list = []
     
     sekolah_filter = st.selectbox(
         "Sekolah (berdasarkan data upload jadwal)",
