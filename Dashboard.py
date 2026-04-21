@@ -768,30 +768,158 @@ elif menu == "Riwayat Mengajar":
 
     st.dataframe(data)
 
-# ==============================
-# MONITORING
-# ==============================
-
 elif menu == "Monitoring Hari Ini":
 
     st.title("📊 Monitoring & Validasi Admin")
 
-    # SAMAKAN WAKTU (WIB)
-    hari_ini = (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d")
+    # =========================
+    # DATA MASTER WILAYAH
+    # =========================
+
+    cabang_dinas = [
+        "Cabdisdik Wilayah I",
+        "Cabdisdik Wilayah II",
+        "Cabdisdik Wilayah III",
+        "Cabdisdik Wilayah IV",
+        "Cabdisdik Wilayah V",
+        "Cabdisdik Wilayah VI",
+        "Cabdisdik Wilayah VII",
+        "Cabdisdik Wilayah VIII",
+        "Cabdisdik Wilayah IX",
+        "Cabdisdik Wilayah X",
+        "Cabdisdik Wilayah XI",
+        "Cabdisdik Wilayah XII",
+        "Cabdisdik Wilayah XIII",
+        "Cabdisdik Wilayah XIV"
+    ]
+
+    kabupaten_map = {
+        "Cabdisdik Wilayah I": ["Deli Serdang", "Kota Medan"],
+        "Cabdisdik Wilayah II": ["Langkat", "Kota Binjai"],
+        "Cabdisdik Wilayah III": ["Serdang Bedagai", "Kota Tebing Tinggi"],
+        "Cabdisdik Wilayah IV": ["Karo", "Dairi", "Pakpak Bharat"],
+        "Cabdisdik Wilayah V": ["Asahan", "Batu Bara", "Kota Tanjungbalai"],
+        "Cabdisdik Wilayah VI": ["Simalungun", "Kota Pematangsiantar"],
+        "Cabdisdik Wilayah VII": ["Labuhanbatu", "Labuhanbatu Utara", "Labuhanbatu Selatan"],
+        "Cabdisdik Wilayah VIII": ["Toba", "Samosir"],
+        "Cabdisdik Wilayah IX": ["Tapanuli Utara", "Humbang Hasundutan"],
+        "Cabdisdik Wilayah X": ["Tapanuli Tengah", "Kota Sibolga"],
+        "Cabdisdik Wilayah XI": ["Padangsidimpuan", "Tapanuli Selatan", "Mandailing Natal"],
+        "Cabdisdik Wilayah XII": ["Padang Lawas", "Padang Lawas Utara"],
+        "Cabdisdik Wilayah XIII": ["Nias", "Nias Utara", "Kota Gunungsitoli"],
+        "Cabdisdik Wilayah XIV": ["Nias Selatan", "Nias Barat"]
+    }
+
+    # =========================
+    # FILTER UI BERJENJANG
+    # =========================
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        cabang = st.selectbox("Cabang Dinas", cabang_dinas)
+
+    with col2:
+        kabupaten = st.selectbox("Kabupaten", kabupaten_map[cabang])
+
+    with col3:
+        jenjang = st.selectbox("Jenjang", ["SMA", "SMK", "SMP"])
+
+    with col4:
+        hari_filter = st.date_input("Hari", datetime.now())
+
+    kelas_filter = st.text_input("Kelas (opsional)")
+
+    # =========================
+    # AMBIL DATA HARI INI
+    # =========================
+
+    tanggal = hari_filter.strftime("%Y-%m-%d")
 
     data = pd.read_sql(
         "SELECT * FROM aktivitas WHERE tanggal=? ORDER BY nama,jam",
         conn,
-        params=(hari_ini,)
+        params=(tanggal,)
     )
 
     if len(data) == 0:
-        st.warning("Belum ada aktivitas hari ini")
+        st.warning("Belum ada aktivitas pada tanggal ini")
+        st.stop()
 
-    else:
-        for i,row in data.iterrows():
+    # =========================
+    # FILTER LANJUT (SEKOLAH BERDASARKAN NPSN)
+    # =========================
+    # NOTE: sekolah berasal dari tabel guru (NPSN dari import jadwal)
 
-            col1, col2, col3 = st.columns([1,2,1])
+    guru_map = pd.read_sql("SELECT nama,sekolah FROM guru", conn)
+
+    data = data.merge(guru_map, on="nama", how="left")
+
+    if kelas_filter != "":
+        data = data[data["kelas"].str.contains(kelas_filter, case=False, na=False)]
+
+    # =========================
+    # FILTER TAMPILAN FINAL
+    # =========================
+
+    st.info(f"""
+    Filter Aktif:
+    - Cabang Dinas: {cabang}
+    - Kabupaten: {kabupaten}
+    - Jenjang: {jenjang}
+    - Tanggal: {tanggal}
+    """)
+
+    # =========================
+    # TAMPILKAN DATA
+    # =========================
+
+    for i, row in data.iterrows():
+
+        col1, col2, col3 = st.columns([1, 2, 1])
+
+        # FOTO
+        with col1:
+            path = os.path.join("uploads", row["foto"])
+            if os.path.exists(path):
+                st.image(path, width=150)
+            else:
+                st.warning("Foto tidak ada")
+
+        # INFO
+        with col2:
+            st.write(f"**{row['nama']}**")
+            st.write(f"Sekolah: {row.get('sekolah','-')}")
+            st.write(f"Kelas: {row['kelas']}")
+            st.write(f"Jam: {row['jam']} ({row['jenis']})")
+            st.write(f"Status Sistem: {row['status']}")
+            st.write(f"Validasi Admin: {row['validasi_admin']}")
+
+        # VALIDASI
+        with col3:
+            pilihan = ["Belum", "Sesuai", "Tidak Sesuai"]
+
+            valid = st.selectbox(
+                "Validasi",
+                pilihan,
+                index=pilihan.index(row["validasi_admin"]),
+                key=f"val{i}"
+            )
+
+            if st.button("Simpan", key=f"btn{i}"):
+
+                cursor.execute("""
+                    UPDATE aktivitas
+                    SET validasi_admin=?
+                    WHERE id=?
+                """, (valid, row["id"]))
+
+                conn.commit()
+
+                st.success("Validasi tersimpan")
+                st.rerun()
+
+        st.markdown("---")
 
             # =========================
             # FOTO
