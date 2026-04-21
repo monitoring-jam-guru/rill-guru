@@ -948,16 +948,17 @@ elif menu == "Monitoring Hari Ini":
                 key=f"val_{row['id']}"   # 🔥 penting: pakai id biar tidak duplicate
             )
     
+            # ==============================
+            # VALIDASI SIMPAN (FIXED)
+            # ==============================
+            
             if st.button("Simpan", key=f"btn_{row['id']}"):
-
-                cursor.execute(
-                    """
+            
+                cursor.execute("""
                     UPDATE aktivitas
-                    SET validasi_admin=?
-                    WHERE id=?
-                    """,
-                    (valid, row["id"])
-                )
+                    SET validasi_admin = ?
+                    WHERE id = ?
+                """, (valid, row["id"]))
             
                 conn.commit()
             
@@ -965,202 +966,232 @@ elif menu == "Monitoring Hari Ini":
                 st.rerun()
             
             st.markdown("---")
-
-# ==============================
-# LAPORAN KADIS
-# ==============================
-
-elif menu == "Laporan Kadis":
-
-    st.title("📊 Laporan Rekap Kadis")
-
-    # =========================
-    # FILTER
-    # =========================
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        filter_tanggal = st.date_input("Pilih Tanggal (opsional)", value=None)
-
-    with col2:
-        filter_bulan = st.selectbox(
-            "Pilih Bulan",
-            ["Semua","01","02","03","04","05","06","07","08","09","10","11","12"]
-        )
-
-    with col3:
-        filter_tahun = st.selectbox(
-            "Pilih Tahun",
-            ["Semua"] + sorted(pd.to_datetime(aktivitas["tanggal"], errors="coerce").dt.year.dropna().astype(int).astype(str).unique())
-        )
-
-    # =========================
-    # LOAD DATA
-    # =========================
-    data = pd.read_sql("SELECT * FROM aktivitas", conn)
-
-    if len(data) == 0:
-        st.warning("Belum ada data")
-        st.stop()
-
-    # =========================
-    # FORMAT TANGGAL
-    # =========================
-    data["tanggal"] = pd.to_datetime(data["tanggal"], errors="coerce")
-    data = data.dropna(subset=["tanggal"])
-
-    # =========================
-    # FILTER DATA
-    # =========================
-    if filter_tanggal:
-        data = data[data["tanggal"].dt.date == filter_tanggal]
-
-    if filter_bulan != "Semua":
-        data = data[data["tanggal"].dt.strftime("%m") == filter_bulan]
-
-    if filter_tahun != "Semua":
-        data = data[data["tanggal"].dt.strftime("%Y") == filter_tahun]
-
-    st.info(f"Filter Aktif → Tanggal: {filter_tanggal}, Bulan: {filter_bulan}, Tahun: {filter_tahun}")
-
-    # =========================
-    # HANYA VALIDASI ADMIN
-    # =========================
-    data = data[data["validasi_admin"] != "Belum"]
-
-    if len(data) == 0:
-        st.warning("Tidak ada data sesuai filter")
-        st.stop()
-
-    # =========================
-    # REKAP UTAMA
-    # =========================
-    rekap_list = []
-
-    for nama in data["nama"].unique():
-
-        df = data[data["nama"] == nama]
-
-        nik = df.iloc[0]["nik"]
-
-        sesuai = len(df[df["validasi_admin"] == "Sesuai"])
-        tidak = len(df[df["validasi_admin"] == "Tidak Sesuai"])
-
-        kelas_sesuai = ", ".join(df[df["validasi_admin"]=="Sesuai"]["kelas"].dropna().unique())
-        kelas_tidak = ", ".join(df[df["validasi_admin"]=="Tidak Sesuai"]["kelas"].dropna().unique())
-
-        alasan = "\n".join(df[df["validasi_admin"]=="Tidak Sesuai"]["alasan"].dropna().unique())
-
-        rekap_list.append({
-            "Nama Guru": nama,
-            "NIK": nik,
-            "Jam Sesuai": sesuai,
-            "Jam Tidak Sesuai": tidak,
-            "Kelas Sesuai": kelas_sesuai,
-            "Kelas Tidak Sesuai": kelas_tidak,
-            "Alasan": alasan
-        })
-
-    rekap = pd.DataFrame(rekap_list)
-
-    st.subheader("Rekap Utama")
-    st.dataframe(rekap, use_container_width=True)
-
-    # =========================
-    # DOWNLOAD CSV
-    # =========================
-    csv = rekap.to_csv(index=False).encode("utf-8")
-
-    nama_file = f"laporan_kadis_{filter_tahun}_{filter_bulan}.csv"
-
-    st.download_button(
-        "Download Rekap Kadis",
-        csv,
-        nama_file,
-        "text/csv"
-    )
-
-    # =========================
-    # REKAP MINGGUAN
-    # =========================
-    mingguan = data.groupby([
-        "nama",
-        pd.Grouper(key="tanggal", freq="W"),
-        "validasi_admin"
-    ]).size().unstack(fill_value=0)
-
-    st.subheader("Rekap Mingguan")
-    st.dataframe(mingguan, use_container_width=True)
-
-    # =========================
-    # REKAP BULANAN (AMAN)
-    # =========================
-    bulanan = data.groupby([
-        "nama",
-        pd.Grouper(key="tanggal", freq="MS"),
-        "validasi_admin"
-    ]).size().unstack(fill_value=0)
-
-    st.subheader("Rekap Bulanan")
-    st.dataframe(bulanan, use_container_width=True)
-    # ==============================
-    # MANAJEMEN USER
-    # ==============================
-
-elif menu == "Manajemen User":
-
-    st.title("Manajemen User")
-
-    username=st.text_input("Username")
-    password=st.text_input("Password")
-
-    role=st.selectbox(
-    "Role",
-    ["operator_dinas","operator_sekolah","kabid","guru"]
-    )
-
-    sekolah=st.text_input("Sekolah")
-
-    if st.button("Tambah User"):
-
-        cursor.execute(
-        "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
-        (username,password,role,sekolah)
-        )
-
-        conn.commit()
-
-        st.success("User berhasil ditambahkan")
-
-    st.dataframe(pd.read_sql("SELECT * FROM users",conn))
-# ==============================
-# REKAP JP
-# ==============================
-
-elif menu == "Rekap JP":
-
-    st.title("📊 Rekap JP Guru")
-
-    data = pd.read_sql("SELECT * FROM aktivitas", conn)
-
-    if len(data) == 0:
-        st.warning("Belum ada data")
-        st.stop()
-
-    # hanya yang sudah divalidasi
-    data = data[data["validasi_admin"] != "Belum"]
-
-    # hitung jumlah
-    rekap = data.groupby(["nama","validasi_admin"]).size().unstack(fill_value=0)
-
-    st.dataframe(rekap)
-
-    # download
-    csv = rekap.to_csv().encode("utf-8")
-
-    st.download_button(
-        "Download Rekap JP",
-        csv,
-        "rekap_jp_guru.csv",
-        "text/csv"
-    )
+            
+            
+            # ==============================
+            # MONITORING HARI INI (FIXED FULL)
+            # ==============================
+            
+            elif menu == "Monitoring Hari Ini":
+            
+                st.title("Monitoring & Validasi Admin")
+            
+                col1, col2, col3, col4 = st.columns(4)
+            
+                with col1:
+                    cabang = st.selectbox("Cabang Dinas", cabang_dinas)
+            
+                with col2:
+                    kabupaten = st.selectbox("Kabupaten", kabupaten_map.get(cabang, []))
+            
+                with col3:
+                    jenjang = st.selectbox("Jenjang", ["SMA", "SMK", "SLB"])
+            
+                with col4:
+                    hari_filter = st.date_input("Tanggal", datetime.now())
+            
+                kelas_filter = st.text_input("Kelas (opsional)")
+            
+                tanggal = hari_filter.strftime("%Y-%m-%d")
+            
+                data = pd.read_sql("""
+                    SELECT * FROM aktivitas
+                    WHERE tanggal=?
+                    ORDER BY nama,jam
+                """, conn, params=(tanggal,))
+            
+                if len(data) == 0:
+                    st.warning("Belum ada aktivitas pada tanggal ini")
+                    st.stop()
+            
+                # ambil mapping guru + sekolah
+                guru_map = pd.read_sql("SELECT DISTINCT nama, sekolah FROM guru", conn)
+            
+                data = data.merge(guru_map, on="nama", how="left")
+            
+                if kelas_filter:
+                    data = data[data["kelas"].str.contains(kelas_filter, case=False, na=False)]
+            
+                # filter sekolah aman
+                if "sekolah" in data.columns:
+                    sekolah_list = sorted(data["sekolah"].dropna().unique().tolist())
+                else:
+                    sekolah_list = []
+            
+                sekolah_filter = st.selectbox(
+                    "Sekolah",
+                    ["Semua"] + sekolah_list
+                )
+            
+                if sekolah_filter != "Semua":
+                    data = data[data["sekolah"] == sekolah_filter]
+            
+                # info filter (tanpa emoji biar aman)
+                st.info(f"""
+            FILTER AKTIF:
+            - Cabang Dinas : {cabang}
+            - Kabupaten    : {kabupaten}
+            - Jenjang      : {jenjang}
+            - Sekolah      : {sekolah_filter}
+            - Tanggal      : {tanggal}
+            """)
+            
+                # ==============================
+                # TAMPILKAN DATA (FIXED LOOP)
+                # ==============================
+            
+                for i, row in data.iterrows():
+            
+                    col1, col2, col3 = st.columns([1, 2, 1])
+            
+                    with col1:
+                        path = os.path.join("uploads", row.get("foto", ""))
+                        if os.path.exists(path):
+                            st.image(path, width=150)
+                        else:
+                            st.warning("Foto tidak ada")
+            
+                    with col2:
+                        st.write(f"**{row['nama']}**")
+                        st.write(f"Sekolah: {row.get('sekolah','-')}")
+                        st.write(f"Kelas: {row.get('kelas','-')}")
+                        st.write(f"Jam: {row.get('jam','-')} ({row.get('jenis','-')})")
+                        st.write(f"Status: {row.get('status','-')}")
+                        st.write(f"Validasi: {row.get('validasi_admin','Belum')}")
+            
+                    with col3:
+            
+                        pilihan = ["Belum", "Sesuai", "Tidak Sesuai"]
+            
+                        current = row.get("validasi_admin", "Belum")
+                        if current not in pilihan:
+                            current = "Belum"
+            
+                        valid = st.selectbox(
+                            "Validasi",
+                            pilihan,
+                            index=pilihan.index(current),
+                            key=f"val_{row['id']}"
+                        )
+            
+                        if st.button("Simpan", key=f"btn_{row['id']}"):
+            
+                            cursor.execute("""
+                                UPDATE aktivitas
+                                SET validasi_admin = ?
+                                WHERE id = ?
+                            """, (valid, row["id"]))
+            
+                            conn.commit()
+            
+                            st.success("Validasi tersimpan")
+                            st.rerun()
+            
+                    st.markdown("---")
+            
+            
+            # ==============================
+            # LAPORAN KADIS (FIXED)
+            # ==============================
+            
+            elif menu == "Laporan Kadis":
+            
+                st.title("Laporan Rekap Kadis")
+            
+                col1, col2, col3 = st.columns(3)
+            
+                with col1:
+                    filter_tanggal = st.date_input("Tanggal", value=None)
+            
+                with col2:
+                    filter_bulan = st.selectbox(
+                        "Bulan",
+                        ["Semua","01","02","03","04","05","06","07","08","09","10","11","12"]
+                    )
+            
+                with col3:
+                    tahun_list = pd.to_datetime(
+                        aktivitas["tanggal"],
+                        errors="coerce"
+                    ).dt.year.dropna().astype(int).astype(str).unique()
+            
+                    filter_tahun = st.selectbox("Tahun", ["Semua"] + sorted(tahun_list))
+            
+                data = pd.read_sql("SELECT * FROM aktivitas", conn)
+            
+                data["tanggal"] = pd.to_datetime(data["tanggal"], errors="coerce")
+                data = data.dropna(subset=["tanggal"])
+            
+                if filter_tanggal:
+                    data = data[data["tanggal"].dt.date == filter_tanggal]
+            
+                if filter_bulan != "Semua":
+                    data = data[data["tanggal"].dt.strftime("%m") == filter_bulan]
+            
+                if filter_tahun != "Semua":
+                    data = data[data["tanggal"].dt.strftime("%Y") == filter_tahun]
+            
+                st.info("FILTER AKTIF DIPAKAI")
+            
+                data = data[data["validasi_admin"] != "Belum"]
+            
+                if len(data) == 0:
+                    st.warning("Tidak ada data")
+                    st.stop()
+            
+                rekap_list = []
+            
+                for nama in data["nama"].unique():
+            
+                    df = data[data["nama"] == nama]
+            
+                    rekap_list.append({
+                        "Nama Guru": nama,
+                        "NIK": df.iloc[0]["nik"],
+                        "Sesuai": len(df[df["validasi_admin"] == "Sesuai"]),
+                        "Tidak Sesuai": len(df[df["validasi_admin"] == "Tidak Sesuai"])
+                    })
+            
+                rekap = pd.DataFrame(rekap_list)
+            
+                st.subheader("Rekap")
+                st.dataframe(rekap)
+            
+                csv = rekap.to_csv(index=False).encode("utf-8")
+            
+                st.download_button(
+                    "Download CSV",
+                    csv,
+                    "rekap_kadis.csv",
+                    "text/csv"
+                )
+            
+            
+            # ==============================
+            # REKAP JP (FIXED)
+            # ==============================
+            
+            elif menu == "Rekap JP":
+            
+                st.title("Rekap JP Guru")
+            
+                data = pd.read_sql("SELECT * FROM aktivitas", conn)
+            
+                if len(data) == 0:
+                    st.warning("Belum ada data")
+                    st.stop()
+            
+                data = data[data["validasi_admin"] != "Belum"]
+            
+                rekap = data.groupby(["nama","validasi_admin"]).size().unstack(fill_value=0)
+            
+                st.dataframe(rekap)
+            
+                csv = rekap.to_csv().encode("utf-8")
+            
+                st.download_button(
+                    "Download",
+                    csv,
+                    "rekap_jp.csv",
+                    "text/csv"
+                )
