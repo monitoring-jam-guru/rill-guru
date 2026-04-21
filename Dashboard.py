@@ -316,8 +316,8 @@ if menu == "Dashboard":
         st.write("DEBUG tanggal:", hari_ini)
         st.write("Contoh tanggal di DB:", aktivitas["tanggal"].unique()[:5])
 
-    sesuai = len(data_today[data_today["status"]=="Sesuai"])
-    tidak = len(data_today[data_today["status"]=="Tidak Sesuai"])
+    sesuai = len(data_todaydata_today["validasi_admin"]=="Sesuai"])
+    tidak = len(data_todaydata_today["validasi_admin"]=="Tidak Sesuai"])
 
     col1,col2,col3 = st.columns(3)
 
