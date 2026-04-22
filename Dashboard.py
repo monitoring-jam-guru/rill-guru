@@ -865,7 +865,7 @@ elif menu == "Monitoring Hari Ini":
     if "jenjang" not in guru_map.columns:
         guru_map["jenjang"] = ""
     
-    data = data.merge(guru_map, on="nama", how="left")
+    data = data.merge(guru_map, on="nik", how="left")
     
     # =========================
     # FILTER CAB + KAB (WAJIB ADA LOGIKA)
@@ -885,18 +885,19 @@ elif menu == "Monitoring Hari Ini":
     # JOIN GURU
     # =========================
 
-    guru_map = pd.read_sql("SELECT nik,nama,sekolah FROM guru", conn)
-    data = data.merge(guru_map, on="nama", how="left")
+    guru_map = pd.read_sql(
+        "SELECT nik, nama, sekolah FROM guru",
+        conn
+    )
 
     # =========================
     # FILTER SEKOLAH (SETELAH JOIN)
     # =========================
 
-    sekolah_list = sorted(data["sekolah"].dropna().unique())
-    sekolah = st.selectbox("Sekolah", ["Semua"] + sekolah_list)
-
-    if sekolah != "Semua":
-        data = data[data["sekolah"] == sekolah]
+    if "sekolah" in data.columns:
+        sekolah_list = sorted(data["sekolah"].dropna().unique().tolist())
+    else:
+        sekolah_list = []
 
     # =========================
     # TAMPILKAN DATA (FIX CLEAN)
