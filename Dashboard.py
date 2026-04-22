@@ -776,22 +776,127 @@ elif menu == "Monitoring Hari Ini":
 
     st.title("📊 Monitoring & Validasi Admin")
 
-    # SAMAKAN WAKTU (WIB)
-    hari_ini = (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d")
+    # =========================
+    # DATA WILAYAH
+    # =========================
+
+    cabang_dinas = [
+        "Cabdisdik Wilayah I","Cabdisdik Wilayah II","Cabdisdik Wilayah III",
+        "Cabdisdik Wilayah IV","Cabdisdik Wilayah V","Cabdisdik Wilayah VI",
+        "Cabdisdik Wilayah VII","Cabdisdik Wilayah VIII","Cabdisdik Wilayah IX",
+        "Cabdisdik Wilayah X","Cabdisdik Wilayah XI","Cabdisdik Wilayah XII",
+        "Cabdisdik Wilayah XIII","Cabdisdik Wilayah XIV"
+    ]
+
+    kabupaten_map = {
+        "Cabdisdik Wilayah I": ["Deli Serdang","Kota Medan"],
+        "Cabdisdik Wilayah II": ["Langkat","Kota Binjai"],
+        "Cabdisdik Wilayah III": ["Serdang Bedagai","Kota Tebing Tinggi"],
+        "Cabdisdik Wilayah IV": ["Karo","Dairi","Pakpak Bharat"],
+        "Cabdisdik Wilayah V": ["Asahan","Batu Bara","Kota Tanjungbalai"],
+        "Cabdisdik Wilayah VI": ["Simalungun","Kota Pematangsiantar"],
+        "Cabdisdik Wilayah VII": ["Labuhanbatu","Labuhanbatu Utara","Labuhanbatu Selatan"],
+        "Cabdisdik Wilayah VIII": ["Toba","Samosir"],
+        "Cabdisdik Wilayah IX": ["Tapanuli Utara","Humbang Hasundutan"],
+        "Cabdisdik Wilayah X": ["Tapanuli Tengah","Kota Sibolga"],
+        "Cabdisdik Wilayah XI": ["Padangsidimpuan","Tapanuli Selatan","Mandailing Natal"],
+        "Cabdisdik Wilayah XII": ["Padang Lawas","Padang Lawas Utara"],
+        "Cabdisdik Wilayah XIII": ["Nias","Nias Utara","Kota Gunungsitoli"],
+        "Cabdisdik Wilayah XIV": ["Nias Selatan","Nias Barat"]
+    }
+
+    # =========================
+    # FILTER BERJENJANG
+    # =========================
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        cabang = st.selectbox("Cabang Dinas", cabang_dinas)
+
+    with col2:
+        kabupaten = st.selectbox("Kabupaten", kabupaten_map[cabang])
+
+    with col3:
+        tanggal = st.date_input("Tanggal", datetime.now())
+
+    # =========================
+    # AMBIL DATA
+    # =========================
+
+    tgl = tanggal.strftime("%Y-%m-%d")
 
     data = pd.read_sql(
-        "SELECT * FROM aktivitas WHERE tanggal=? ORDER BY nama,jam",
+        "SELECT * FROM aktivitas WHERE tanggal=?",
         conn,
-        params=(hari_ini,)
+        params=(tgl,)
     )
 
     if len(data) == 0:
-        st.warning("Belum ada aktivitas hari ini")
+        st.warning("Tidak ada data")
+        st.stop()
 
-    else:
-        for i,row in data.iterrows():
+    # =========================
+    # JOIN GURU (WAJIB)
+    # =========================
 
-            col1, col2, col3 = st.columns([1,2,1])
+    guru_map = pd.read_sql("SELECT nik,nama,sekolah FROM guru", conn)
+
+    data = data.merge(guru_map, on="nama", how="left")
+
+    # =========================
+    # FILTER SEKOLAH (BARU MUNCUL SETELAH CABDIS + KAB)
+    # =========================
+
+    sekolah_list = sorted(data["sekolah"].dropna().unique().tolist())
+
+    sekolah = st.selectbox("Sekolah", ["Semua"] + sekolah_list)
+
+    if sekolah != "Semua":
+        data = data[data["sekolah"] == sekolah]
+
+    # =========================
+    # TAMPILKAN DATA
+    # =========================
+
+    for i,row in data.iterrows():
+
+        col1,col2,col3 = st.columns([1,2,1])
+
+        with col1:
+            path = os.path.join("uploads", row["foto"])
+            if os.path.exists(path):
+                st.image(path, width=120)
+
+        with col2:
+            st.write(f"**{row['nama']}**")
+            st.write(f"Sekolah: {row['sekolah']}")
+            st.write(f"Kelas: {row['kelas']}")
+            st.write(f"Jam: {row['jam']}")
+
+        with col3:
+
+            pilihan = ["Belum","Sesuai","Tidak Sesuai"]
+
+            valid = st.selectbox(
+                "Validasi",
+                pilihan,
+                index=pilihan.index(row["validasi_admin"]) if row["validasi_admin"] in pilihan else 0,
+                key=f"v{i}"
+            )
+
+            if st.button("Simpan", key=f"b{i}"):
+
+                cursor.execute("""
+                UPDATE aktivitas
+                SET validasi_admin=?
+                WHERE id=?
+                """,(valid,row["id"]))
+
+                conn.commit()
+
+                st.success("Update berhasil")
+                st.rerun()
 
             # =========================
             # FOTO
