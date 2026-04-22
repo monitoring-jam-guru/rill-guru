@@ -305,12 +305,24 @@ if menu == "Dashboard":
     st.title("DIMORA-SU")
     st.caption("Digital Monitoring Jam Mengajar Guru")
 
-    hari_ini = datetime.now().strftime("%Y-%m-%d")
-
+    # 🔥 SAMAKAN WAKTU (WIB)
+    hari_ini = (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d")
+    
     data_today = aktivitas[aktivitas["tanggal"] == hari_ini]
-
-    sesuai = len(data_today[data_today["status"]=="Sesuai"])
-    tidak = len(data_today[data_today["status"]=="Tidak Sesuai"])
+    
+    # 🔥 DEBUG kalau kosong
+    if len(data_today) == 0:
+        st.warning("Tidak ada data hari ini")
+        st.write("DEBUG tanggal:", hari_ini)
+        st.write("Contoh tanggal di DB:", aktivitas["tanggal"].unique()[:5])
+    
+    # 🔥 ANTISIPASI kalau kolom belum ada
+    if "validasi_admin" not in data_today.columns:
+        data_today["validasi_admin"] = "Belum"
+    
+    # 🔥 PERHITUNGAN YANG BENAR
+    sesuai = len(data_today[data_today["validasi_admin"] == "Sesuai"])
+    tidak = len(data_today[data_today["validasi_admin"] == "Tidak Sesuai"])
 
     col1,col2,col3 = st.columns(3)
 
@@ -318,7 +330,8 @@ if menu == "Dashboard":
     col2.metric("Mengajar Sesuai", sesuai)
     col3.metric("Tidak Sesuai", tidak)
 
-    st.bar_chart(data_today.groupby("status").size())
+    if len(data_today) > 0:
+        st.bar_chart(data_today.groupby("validasi_admin").size())
 
 # ==============================
 # IMPORT EXCEL
@@ -688,29 +701,53 @@ elif menu == "Upload Foto Mengajar":
             # =========================
             # SIMPAN DATABASE
             # =========================
-    
+            
+            # 🔥 ambil hari indonesia
+            hari_map = {
+                "Monday": "Senin",
+                "Tuesday": "Selasa",
+                "Wednesday": "Rabu",
+                "Thursday": "Kamis",
+                "Friday": "Jumat",
+                "Saturday": "Sabtu",
+                "Sunday": "Minggu"
+            }
+            
+            hari_nama = hari_map[waktu.strftime("%A")]
+            tanggal_format = waktu.strftime("%d-%m-%Y")
+            
+            # 🔥 buat alasan otomatis
+            if status == "Tidak Sesuai":
+                alasan_text = (
+                    f"{hari_nama}, {tanggal_format} | "
+                    f"Upload {jenis_absen} pukul {jam}, "
+                    f"jadwal {mulai}-{selesai}"
+                )
+            else:
+                alasan_text = "Sesuai Jadwal"
+            
             cursor.execute(
             """
             INSERT INTO aktivitas
             (nik,nama,tanggal,jam,kelas,jenis,status,foto,jam_jadwal,alasan)
-            VALUES (?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
             """,
             (
-            nik,
-            nama,
-            tanggal_str,
-            jam,
-            st.session_state.kelas_aktif,
-            jenis_absen,
-            status,
-            filename,
-            f"{mulai} - {selesai}",
-            f"Upload {jenis_absen} pada {jam}, jadwal {mulai}-{selesai}"
+                nik,
+                nama,
+                tanggal_str,
+                jam,
+                st.session_state.kelas_aktif,
+                jenis_absen,
+                status,
+                filename,
+                f"{mulai} - {selesai}",
+                alasan_text
             )
             )
-    
+            
             conn.commit()
-    
+            
             st.success(f"Absensi {jenis_absen} berhasil - Status : {status}")
 
 # ==============================
@@ -805,90 +842,96 @@ elif menu == "Monitoring Hari Ini":
             st.markdown("---")
 
 # ==============================
-# LAPORAN PDF
+# LAPORAN KADIS
 # ==============================
 
-st.title("📊 Laporan Rekap Kadis")
+elif menu == "Laporan Kadis":
 
-data = pd.read_sql("SELECT * FROM aktivitas", conn)
+    st.title("📊 Laporan Rekap Kadis")
 
-if len(data) == 0:
-    st.warning("Belum ada data")
-    st.stop()
+    data = pd.read_sql("SELECT * FROM aktivitas", conn)
 
-# hanya yang sudah divalidasi admin
-data = data[data["validasi_admin"] != "Belum"]
+    if len(data) == 0:
+        st.warning("Belum ada data")
+        st.stop()
 
-# =========================
-# HITUNG REKAP
-# =========================
+    # hanya yang sudah divalidasi admin
+    data = data[data["validasi_admin"] != "Belum"]
 
-rekap_list = []
+    rekap_list = []
 
-for nama in data["nama"].unique():
+    for nama in data["nama"].unique():
 
-    df = data[data["nama"] == nama]
+        df = data[data["nama"] == nama]
 
-    nik = df.iloc[0]["nik"]
+        nik = df.iloc[0]["nik"]
 
-    sesuai = len(df[df["validasi_admin"] == "Sesuai"])
-    tidak = len(df[df["validasi_admin"] == "Tidak Sesuai"])
+        sesuai = len(df[df["validasi_admin"] == "Sesuai"])
+        tidak = len(df[df["validasi_admin"] == "Tidak Sesuai"])
 
-    kelas_sesuai = ", ".join(df[df["validasi_admin"]=="Sesuai"]["kelas"].unique())
-    kelas_tidak = ", ".join(df[df["validasi_admin"]=="Tidak Sesuai"]["kelas"].unique())
+        kelas_sesuai = ", ".join(df[df["validasi_admin"]=="Sesuai"]["kelas"].unique())
+        kelas_tidak = ", ".join(df[df["validasi_admin"]=="Tidak Sesuai"]["kelas"].unique())
 
-    alasan = "\n".join(df[df["validasi_admin"]=="Tidak Sesuai"]["alasan"].dropna().unique())
+        alasan = "\n".join(df[df["validasi_admin"]=="Tidak Sesuai"]["alasan"].dropna().unique())
 
-    rekap_list.append({
-        "Nama Guru": nama,
-        "NIK": nik,
-        "Jam Sesuai": sesuai,
-        "Jam Tidak Sesuai": tidak,
-        "Kelas Sesuai": kelas_sesuai,
-        "Kelas Tidak Sesuai": kelas_tidak,
-        "Alasan": alasan
-    })
+        rekap_list.append({
+            "Nama Guru": nama,
+            "NIK": nik,
+            "Jam Sesuai": sesuai,
+            "Jam Tidak Sesuai": tidak,
+            "Kelas Sesuai": kelas_sesuai,
+            "Kelas Tidak Sesuai": kelas_tidak,
+            "Alasan": alasan
+        })
 
-rekap = pd.DataFrame(rekap_list)
+    rekap = pd.DataFrame(rekap_list)
 
-st.dataframe(rekap)
+    st.dataframe(rekap)
 
-# =========================
-# DOWNLOAD CSV
-# =========================
+    # DOWNLOAD CSV
+    csv = rekap.to_csv(index=False).encode("utf-8")
 
-csv = rekap.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "Download Rekap Kadis",
+        csv,
+        "laporan_kadis.csv",
+        "text/csv"
+    )
 
-st.download_button(
-    "Download Rekap Kadis",
-    csv,
-    "laporan_kadis.csv",
-    "text/csv"
-)
-data["tanggal"] = pd.to_datetime(data["tanggal"])
-
-# Mingguan
-mingguan = data.groupby([
-    "nama",
-    pd.Grouper(key="tanggal", freq="W"),
-    "validasi_admin"
-]).size().unstack(fill_value=0)
-
-st.subheader("Rekap Mingguan")
-st.dataframe(mingguan)
-
-# Bulanan
-bulanan = data.groupby([
-    "nama",
-    pd.Grouper(key="tanggal", freq="M"),
-    "validasi_admin"
-]).size().unstack(fill_value=0)
-
-st.subheader("Rekap Bulanan")
-st.dataframe(bulanan)
-# ==============================
-# MANAJEMEN USER
-# ==============================
+    # =========================
+    # AMANKAN FORMAT TANGGAL
+    # =========================
+    data["tanggal"] = pd.to_datetime(data["tanggal"], errors="coerce")
+    
+    # buang data yang tanggalnya error
+    data = data.dropna(subset=["tanggal"])
+    
+    # =========================
+    # REKAP MINGGUAN
+    # =========================
+    mingguan = data.groupby([
+        "nama",
+        pd.Grouper(key="tanggal", freq="W"),
+        "validasi_admin"
+    ]).size().unstack(fill_value=0)
+    
+    st.subheader("Rekap Mingguan")
+    st.dataframe(mingguan)
+    
+    # =========================
+    # REKAP BULANAN (FIX)
+    # =========================
+    bulanan = data.groupby([
+        "nama",
+        pd.Grouper(key="tanggal", freq="MS"),  # 🔥 FIX DI SINI
+        "validasi_admin"
+    ]).size().unstack(fill_value=0)
+    
+    st.subheader("Rekap Bulanan")
+    st.dataframe(bulanan)
+    # ==============================
+    # MANAJEMEN USER
+    # ==============================
 
 elif menu == "Manajemen User":
 
