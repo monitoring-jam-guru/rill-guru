@@ -806,35 +806,63 @@ elif menu == "Monitoring Hari Ini":
     }
 
     # =========================
-    # FILTER
+    # FILTER BERJENJANG (FIX)
     # =========================
-
-    col1, col2, col3 = st.columns(3)
-
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
     with col1:
         cabang = st.selectbox("Cabang Dinas", cabang_dinas)
-
+    
     with col2:
         kabupaten = st.selectbox("Kabupaten", kabupaten_map[cabang])
-
+    
     with col3:
         tanggal = st.date_input("Tanggal", datetime.now())
+    
+    with col4:
+        jenjang_list = pd.read_sql(
+            "SELECT DISTINCT jenjang FROM guru WHERE jenjang IS NOT NULL AND jenjang != ''",
+            conn
+        )["jenjang"].dropna().tolist()
+    
+        if len(jenjang_list) > 0:
+            jenjang = st.selectbox("Jenjang", ["Semua"] + jenjang_list)
+        else:
+            jenjang = "Semua"
 
     # =========================
     # AMBIL DATA
     # =========================
-
+    
     tgl = tanggal.strftime("%Y-%m-%d")
-
+    
     data = pd.read_sql(
-        "SELECT * FROM aktivitas WHERE tanggal=? ORDER BY nama,jam",
+        "SELECT * FROM aktivitas WHERE tanggal=?",
         conn,
         params=(tgl,)
     )
-
-    if data.empty:
-        st.warning("Tidak ada data")
-        st.stop()
+    
+    guru_map = pd.read_sql(
+        "SELECT nik,nama,sekolah,jenjang FROM guru",
+        conn
+    )
+    
+    data = data.merge(guru_map, on="nama", how="left")
+    
+    # =========================
+    # FILTER CAB + KAB (WAJIB ADA LOGIKA)
+    # =========================
+    
+    if kabupaten:
+        data = data[data["sekolah"].notna()]  # aman dulu (bisa kamu upgrade nanti mapping sekolah-kab)
+    
+    # =========================
+    # FILTER JENJANG (FIX UTAMA)
+    # =========================
+    
+    if jenjang != "Semua":
+        data = data[data["jenjang"] == jenjang]
 
     # =========================
     # JOIN GURU
