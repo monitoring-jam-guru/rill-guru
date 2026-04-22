@@ -805,85 +805,87 @@ elif menu == "Monitoring Hari Ini":
             st.markdown("---")
 
 # ==============================
-# LAPORAN KADIS
+# LAPORAN PDF
 # ==============================
 
-elif menu == "Laporan Kadis":
+st.title("📊 Laporan Rekap Kadis")
 
-    st.title("📊 Laporan Rekap Kadis")
+data = pd.read_sql("SELECT * FROM aktivitas", conn)
 
-    data = pd.read_sql("SELECT * FROM aktivitas", conn)
+if len(data) == 0:
+    st.warning("Belum ada data")
+    st.stop()
 
-    if len(data) == 0:
-        st.warning("Belum ada data")
-        st.stop()
+# hanya yang sudah divalidasi admin
+data = data[data["validasi_admin"] != "Belum"]
 
-    # hanya yang sudah divalidasi admin
-    data = data[data["validasi_admin"] != "Belum"]
+# =========================
+# HITUNG REKAP
+# =========================
 
-    rekap_list = []
+rekap_list = []
 
-    for nama in data["nama"].unique():
+for nama in data["nama"].unique():
 
-        df = data[data["nama"] == nama]
+    df = data[data["nama"] == nama]
 
-        nik = df.iloc[0]["nik"]
+    nik = df.iloc[0]["nik"]
 
-        sesuai = len(df[df["validasi_admin"] == "Sesuai"])
-        tidak = len(df[df["validasi_admin"] == "Tidak Sesuai"])
+    sesuai = len(df[df["validasi_admin"] == "Sesuai"])
+    tidak = len(df[df["validasi_admin"] == "Tidak Sesuai"])
 
-        kelas_sesuai = ", ".join(df[df["validasi_admin"]=="Sesuai"]["kelas"].unique())
-        kelas_tidak = ", ".join(df[df["validasi_admin"]=="Tidak Sesuai"]["kelas"].unique())
+    kelas_sesuai = ", ".join(df[df["validasi_admin"]=="Sesuai"]["kelas"].unique())
+    kelas_tidak = ", ".join(df[df["validasi_admin"]=="Tidak Sesuai"]["kelas"].unique())
 
-        alasan = "\n".join(df[df["validasi_admin"]=="Tidak Sesuai"]["alasan"].dropna().unique())
+    alasan = "\n".join(df[df["validasi_admin"]=="Tidak Sesuai"]["alasan"].dropna().unique())
 
-        rekap_list.append({
-            "Nama Guru": nama,
-            "NIK": nik,
-            "Jam Sesuai": sesuai,
-            "Jam Tidak Sesuai": tidak,
-            "Kelas Sesuai": kelas_sesuai,
-            "Kelas Tidak Sesuai": kelas_tidak,
-            "Alasan": alasan
-        })
+    rekap_list.append({
+        "Nama Guru": nama,
+        "NIK": nik,
+        "Jam Sesuai": sesuai,
+        "Jam Tidak Sesuai": tidak,
+        "Kelas Sesuai": kelas_sesuai,
+        "Kelas Tidak Sesuai": kelas_tidak,
+        "Alasan": alasan
+    })
 
-    rekap = pd.DataFrame(rekap_list)
+rekap = pd.DataFrame(rekap_list)
 
-    st.dataframe(rekap)
+st.dataframe(rekap)
 
-    # DOWNLOAD CSV
-    csv = rekap.to_csv(index=False).encode("utf-8")
+# =========================
+# DOWNLOAD CSV
+# =========================
 
-    st.download_button(
-        "Download Rekap Kadis",
-        csv,
-        "laporan_kadis.csv",
-        "text/csv"
-    )
+csv = rekap.to_csv(index=False).encode("utf-8")
 
-    # =========================
-    # REKAP MINGGUAN & BULANAN
-    # =========================
+st.download_button(
+    "Download Rekap Kadis",
+    csv,
+    "laporan_kadis.csv",
+    "text/csv"
+)
+data["tanggal"] = pd.to_datetime(data["tanggal"])
 
-    data["tanggal"] = pd.to_datetime(data["tanggal"])
+# Mingguan
+mingguan = data.groupby([
+    "nama",
+    pd.Grouper(key="tanggal", freq="W"),
+    "validasi_admin"
+]).size().unstack(fill_value=0)
 
-    mingguan = data.groupby([
-        "nama",
-        pd.Grouper(key="tanggal", freq="W"),
-        "validasi_admin"
-    ]).size().unstack(fill_value=0)
+st.subheader("Rekap Mingguan")
+st.dataframe(mingguan)
 
-    st.subheader("Rekap Mingguan")
-    st.dataframe(mingguan)
+# Bulanan
+bulanan = data.groupby([
+    "nama",
+    pd.Grouper(key="tanggal", freq="M"),
+    "validasi_admin"
+]).size().unstack(fill_value=0)
 
-    bulanan = data.groupby([
-        "nama",
-        pd.Grouper(key="tanggal", freq="M"),
-        "validasi_admin"
-    ]).size().unstack(fill_value=0)
-
-    st.subheader("Rekap Bulanan")
-    st.dataframe(bulanan)
+st.subheader("Rekap Bulanan")
+st.dataframe(bulanan)
 # ==============================
 # MANAJEMEN USER
 # ==============================
