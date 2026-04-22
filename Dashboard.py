@@ -859,10 +859,11 @@ elif menu == "Monitoring Hari Ini":
         params=(tgl,)
     )
     
-    guru_map = pd.read_sql(
-        "SELECT nik,nama,sekolah,jenjang FROM guru",
-        conn
-    )
+    guru_map = pd.read_sql("SELECT * FROM guru", conn)
+
+    # amanin kalau kolom jenjang belum ada
+    if "jenjang" not in guru_map.columns:
+        guru_map["jenjang"] = ""
     
     data = data.merge(guru_map, on="nama", how="left")
     
