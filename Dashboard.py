@@ -769,7 +769,7 @@ elif menu == "Riwayat Mengajar":
     st.dataframe(data)
 
 # ==============================
-# MONITORING
+# MONITORING HARI INI (FIXED)
 # ==============================
 
 elif menu == "Monitoring Hari Ini":
@@ -806,7 +806,7 @@ elif menu == "Monitoring Hari Ini":
     }
 
     # =========================
-    # FILTER BERJENJANG
+    # FILTER
     # =========================
 
     col1, col2, col3 = st.columns(3)
@@ -827,98 +827,89 @@ elif menu == "Monitoring Hari Ini":
     tgl = tanggal.strftime("%Y-%m-%d")
 
     data = pd.read_sql(
-        "SELECT * FROM aktivitas WHERE tanggal=?",
+        "SELECT * FROM aktivitas WHERE tanggal=? ORDER BY nama,jam",
         conn,
         params=(tgl,)
     )
 
-    if len(data) == 0:
+    if data.empty:
         st.warning("Tidak ada data")
         st.stop()
 
     # =========================
-    # JOIN GURU (WAJIB)
+    # JOIN GURU
     # =========================
 
     guru_map = pd.read_sql("SELECT nik,nama,sekolah FROM guru", conn)
-
     data = data.merge(guru_map, on="nama", how="left")
 
     # =========================
-    # FILTER SEKOLAH (BARU MUNCUL SETELAH CABDIS + KAB)
+    # FILTER SEKOLAH (SETELAH JOIN)
     # =========================
 
-    sekolah_list = sorted(data["sekolah"].dropna().unique().tolist())
-
+    sekolah_list = sorted(data["sekolah"].dropna().unique())
     sekolah = st.selectbox("Sekolah", ["Semua"] + sekolah_list)
 
     if sekolah != "Semua":
         data = data[data["sekolah"] == sekolah]
 
     # =========================
-    # TAMPILKAN DATA (FIX DUPLIKAT + FOTO)
+    # TAMPILKAN DATA (FIX CLEAN)
     # =========================
-    
+
     for i, row in data.iterrows():
-    
-        col1, col2, col3 = st.columns([1,2,1])
-    
-        # =========================
-        # FOTO (1 SAJA)
-        # =========================
+
+        col1, col2, col3 = st.columns([1, 2, 1])
+
+        # ================= FOTO =================
         with col1:
-    
-            path = os.path.join("uploads", row.get("foto",""))
-    
-            if os.path.exists(path):
-                st.image(path, width=120)
+            foto = row.get("foto", None)
+            if pd.notna(foto):
+                path = os.path.join("uploads", foto)
+                if os.path.exists(path):
+                    st.image(path, width=120)
+                else:
+                    st.warning("Foto tidak ditemukan")
             else:
-                st.warning("Foto tidak ada")
-    
-        # =========================
-        # INFO
-        # =========================
+                st.warning("Tidak ada foto")
+
+        # ================= INFO =================
         with col2:
-    
-            st.write(f"**{row['nama']}**")
+            st.write(f"**{row.get('nama','-')}**")
             st.write(f"Sekolah: {row.get('sekolah','-')}")
             st.write(f"Kelas: {row.get('kelas','-')}")
             st.write(f"Jam: {row.get('jam','-')} ({row.get('jenis','-')})")
             st.write(f"Status Sistem: {row.get('status','-')}")
-            st.write(f"Validasi Admin: {row.get('validasi_admin','Belum')}")
-    
-        # =========================
-        # VALIDASI (1 SAJA)
-        # =========================
+
+        # ================= VALIDASI =================
         with col3:
-    
+
             pilihan = ["Belum", "Sesuai", "Tidak Sesuai"]
-    
+
             current = row.get("validasi_admin", "Belum")
-    
             if current not in pilihan:
                 current = "Belum"
-    
+
             valid = st.selectbox(
                 "Validasi",
                 pilihan,
                 index=pilihan.index(current),
                 key=f"val_{row['id']}"
             )
-    
+
             if st.button("Simpan", key=f"btn_{row['id']}"):
-    
+
                 cursor.execute("""
                     UPDATE aktivitas
                     SET validasi_admin=?
                     WHERE id=?
                 """, (valid, row["id"]))
-    
+
                 conn.commit()
-    
+
                 st.success("Validasi tersimpan")
                 st.rerun()
-    
+
         st.markdown("---")
 # ==============================
 # LAPORAN KADIS
