@@ -65,7 +65,8 @@ jam TEXT,
 kelas TEXT,
 jenis TEXT,
 status TEXT,
-foto TEXT
+foto TEXT,
+validasi_admin TEXT DEFAULT 'Belum'
 )
 """)
 
@@ -82,6 +83,28 @@ sekolah TEXT
 
 conn.commit()
 
+# ==============================
+# TAMBAH KOLOM JIKA BELUM ADA
+# ==============================
+try:
+    cursor.execute("""
+        ALTER TABLE aktivitas 
+        ADD COLUMN validasi_admin TEXT DEFAULT 'Belum'
+    """)
+except:
+    pass
+
+try:
+    cursor.execute("ALTER TABLE aktivitas ADD COLUMN jam_jadwal TEXT")
+except:
+    pass
+
+try:
+    cursor.execute("ALTER TABLE aktivitas ADD COLUMN alasan TEXT")
+except:
+    pass
+
+conn.commit()
 # ==============================
 # USER DEFAULT
 # ==============================
@@ -162,14 +185,15 @@ role = st.session_state.role
 if role == "operator_dinas":
 
     menu = st.sidebar.selectbox(
-    "Menu",
-    [
-    "Dashboard",
-    "Import Excel",
-    "Monitoring Hari Ini",
-    "Laporan Kadis",
-    "Manajemen User"
-    ]
+        "Menu",
+        [
+        "Dashboard",
+        "Import Excel",
+        "Monitoring Hari Ini",
+        "Rekap JP",   # 👈 TAMBAHKAN INI
+        "Laporan Kadis",
+        "Manajemen User"
+        ]
     )
 
 elif role == "operator_sekolah":
@@ -654,9 +678,11 @@ elif menu == "Upload Foto Mengajar":
                 path,
                 f"{nama} {st.session_state.kelas_aktif} {tanggal_str} {jam}"
             )
-    
-            hasil_upload = upload_drive(path)
-    
+            
+            # NONAKTIFKAN GOOGLE DRIVE (penyebab crash)
+            # hasil_upload = upload_drive(path)
+            
+            hasil_upload = "Upload lokal berhasil"
             st.info(hasil_upload)
     
             # =========================
@@ -666,7 +692,7 @@ elif menu == "Upload Foto Mengajar":
             cursor.execute(
             """
             INSERT INTO aktivitas
-            (nik,nama,tanggal,jam,kelas,jenis,status,foto)
+            (nik,nama,tanggal,jam,kelas,jenis,status,foto,jam_jadwal,alasan)
             VALUES (?,?,?,?,?,?,?,?)
             """,
             (
@@ -677,7 +703,9 @@ elif menu == "Upload Foto Mengajar":
             st.session_state.kelas_aktif,
             jenis_absen,
             status,
-            filename
+            filename,
+            f"{mulai} - {selesai}",
+            f"Upload {jenis_absen} pada {jam}, jadwal {mulai}-{selesai}"
             )
             )
     
@@ -709,79 +737,153 @@ elif menu == "Riwayat Mengajar":
 
 elif menu == "Monitoring Hari Ini":
 
-    st.title("Monitoring Guru")
+    st.title("📊 Monitoring & Validasi Admin")
 
-    hari_ini=datetime.now().strftime("%Y-%m-%d")
+    # SAMAKAN WAKTU (WIB)
+    hari_ini = (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d")
 
-    data=pd.read_sql(
-    "SELECT * FROM aktivitas WHERE tanggal=?",
-    conn,
-    params=(hari_ini,)
+    data = pd.read_sql(
+        "SELECT * FROM aktivitas WHERE tanggal=? ORDER BY nama,jam",
+        conn,
+        params=(hari_ini,)
     )
 
-    if len(data)==0:
-        st.warning("Belum ada aktivitas")
+    if len(data) == 0:
+        st.warning("Belum ada aktivitas hari ini")
 
     else:
-
         for i,row in data.iterrows():
 
-            if row["status"]=="Sesuai":
+            col1, col2, col3 = st.columns([1,2,1])
 
-                st.success(
-                f"{row['nama']} - {row['jam']} - {row['jenis']}"
+            # =========================
+            # FOTO
+            # =========================
+            with col1:
+                path = os.path.join("uploads", row["foto"])
+                if os.path.exists(path):
+                    st.image(path, width=150)
+                else:
+                    st.warning("Foto tidak ada")
+
+            # =========================
+            # INFO
+            # =========================
+            with col2:
+                st.write(f"**{row['nama']}**")
+                st.write(f"Kelas: {row['kelas']}")
+                st.write(f"Jam: {row['jam']} ({row['jenis']})")
+                st.write(f"Status Sistem: {row['status']}")
+                st.write(f"Validasi Admin: {row.get('validasi_admin','Belum')}")
+
+            # =========================
+            # VALIDASI ADMIN
+            # =========================
+            with col3:
+                pilihan = ["Belum","Sesuai","Tidak Sesuai"]
+
+                valid = st.selectbox(
+                    "Validasi",
+                    pilihan,
+                    index=pilihan.index(row["validasi_admin"]),
+                    key=f"val{i}"
                 )
 
-            else:
+                if st.button("Simpan", key=f"btn{i}"):
 
-                st.error(
-                f"{row['nama']} - {row['jam']} - {row['jenis']}"
-                )
+                    cursor.execute("""
+                    UPDATE aktivitas
+                    SET validasi_admin=?
+                    WHERE id=?
+                    """,(valid,row["id"]))
+
+                    conn.commit()
+
+                    st.success("Validasi tersimpan")
+                    st.rerun()
+
+            st.markdown("---")
 
 # ==============================
-# LAPORAN PDF
+# LAPORAN KADIS
 # ==============================
 
 elif menu == "Laporan Kadis":
 
-    st.title("Laporan Monitoring")
+    st.title("📊 Laporan Rekap Kadis")
 
-    hari_ini=datetime.now().strftime("%Y-%m-%d")
+    data = pd.read_sql("SELECT * FROM aktivitas", conn)
 
-    data=pd.read_sql(
-    "SELECT * FROM aktivitas WHERE tanggal=?",
-    conn,
-    params=(hari_ini,)
+    if len(data) == 0:
+        st.warning("Belum ada data")
+        st.stop()
+
+    # hanya yang sudah divalidasi admin
+    data = data[data["validasi_admin"] != "Belum"]
+
+    rekap_list = []
+
+    for nama in data["nama"].unique():
+
+        df = data[data["nama"] == nama]
+
+        nik = df.iloc[0]["nik"]
+
+        sesuai = len(df[df["validasi_admin"] == "Sesuai"])
+        tidak = len(df[df["validasi_admin"] == "Tidak Sesuai"])
+
+        kelas_sesuai = ", ".join(df[df["validasi_admin"]=="Sesuai"]["kelas"].unique())
+        kelas_tidak = ", ".join(df[df["validasi_admin"]=="Tidak Sesuai"]["kelas"].unique())
+
+        alasan = "\n".join(df[df["validasi_admin"]=="Tidak Sesuai"]["alasan"].dropna().unique())
+
+        rekap_list.append({
+            "Nama Guru": nama,
+            "NIK": nik,
+            "Jam Sesuai": sesuai,
+            "Jam Tidak Sesuai": tidak,
+            "Kelas Sesuai": kelas_sesuai,
+            "Kelas Tidak Sesuai": kelas_tidak,
+            "Alasan": alasan
+        })
+
+    rekap = pd.DataFrame(rekap_list)
+
+    st.dataframe(rekap)
+
+    # DOWNLOAD CSV
+    csv = rekap.to_csv(index=False).encode("utf-8")
+
+    st.download_button(
+        "Download Rekap Kadis",
+        csv,
+        "laporan_kadis.csv",
+        "text/csv"
     )
 
-    if st.button("Generate PDF"):
+    # =========================
+    # REKAP MINGGUAN & BULANAN
+    # =========================
 
-        pdf=FPDF()
+    data["tanggal"] = pd.to_datetime(data["tanggal"])
 
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
+    mingguan = data.groupby([
+        "nama",
+        pd.Grouper(key="tanggal", freq="W"),
+        "validasi_admin"
+    ]).size().unstack(fill_value=0)
 
-        pdf.cell(200,10,"Laporan Monitoring Guru",ln=True)
-        pdf.cell(200,10,f"Tanggal: {hari_ini}",ln=True)
+    st.subheader("Rekap Mingguan")
+    st.dataframe(mingguan)
 
-        pdf.ln(10)
+    bulanan = data.groupby([
+        "nama",
+        pd.Grouper(key="tanggal", freq="M"),
+        "validasi_admin"
+    ]).size().unstack(fill_value=0)
 
-        for i,row in data.iterrows():
-
-            text=f"{row['nama']} - {row['jam']} - {row['status']}"
-
-            pdf.cell(200,10,text,ln=True)
-
-        pdf.output("laporan.pdf")
-
-        with open("laporan.pdf","rb") as f:
-
-            st.download_button(
-            "Download PDF",
-            f,
-            file_name="laporan_monitoring.pdf"
-            )
-
+    st.subheader("Rekap Bulanan")
+    st.dataframe(bulanan)
 # ==============================
 # MANAJEMEN USER
 # ==============================
@@ -812,3 +914,34 @@ elif menu == "Manajemen User":
         st.success("User berhasil ditambahkan")
 
     st.dataframe(pd.read_sql("SELECT * FROM users",conn))
+# ==============================
+# REKAP JP
+# ==============================
+
+elif menu == "Rekap JP":
+
+    st.title("📊 Rekap JP Guru")
+
+    data = pd.read_sql("SELECT * FROM aktivitas", conn)
+
+    if len(data) == 0:
+        st.warning("Belum ada data")
+        st.stop()
+
+    # hanya yang sudah divalidasi
+    data = data[data["validasi_admin"] != "Belum"]
+
+    # hitung jumlah
+    rekap = data.groupby(["nama","validasi_admin"]).size().unstack(fill_value=0)
+
+    st.dataframe(rekap)
+
+    # download
+    csv = rekap.to_csv().encode("utf-8")
+
+    st.download_button(
+        "Download Rekap JP",
+        csv,
+        "rekap_jp_guru.csv",
+        "text/csv"
+    )
