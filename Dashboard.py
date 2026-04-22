@@ -383,8 +383,6 @@ elif menu == "Import Excel":
 
                     cursor.execute(
                     """
-                    cursor.execute(
-                    """
                     INSERT OR REPLACE INTO guru
                     (nik,nama,jenjang,sekolah,mapel,lat,lon)
                     VALUES (?,?,?,?,?,?,?)
