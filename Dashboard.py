@@ -856,96 +856,70 @@ elif menu == "Monitoring Hari Ini":
         data = data[data["sekolah"] == sekolah]
 
     # =========================
-    # TAMPILKAN DATA
+    # TAMPILKAN DATA (FIX DUPLIKAT + FOTO)
     # =========================
-
-    for i,row in data.iterrows():
-
-        col1,col2,col3 = st.columns([1,2,1])
-
+    
+    for i, row in data.iterrows():
+    
+        col1, col2, col3 = st.columns([1,2,1])
+    
+        # =========================
+        # FOTO (1 SAJA)
+        # =========================
         with col1:
-            path = os.path.join("uploads", row["foto"])
+    
+            path = os.path.join("uploads", row.get("foto",""))
+    
             if os.path.exists(path):
                 st.image(path, width=120)
-
+            else:
+                st.warning("Foto tidak ada")
+    
+        # =========================
+        # INFO
+        # =========================
         with col2:
+    
             st.write(f"**{row['nama']}**")
-            st.write(f"Sekolah: {row['sekolah']}")
-            st.write(f"Kelas: {row['kelas']}")
-            st.write(f"Jam: {row['jam']}")
-
+            st.write(f"Sekolah: {row.get('sekolah','-')}")
+            st.write(f"Kelas: {row.get('kelas','-')}")
+            st.write(f"Jam: {row.get('jam','-')} ({row.get('jenis','-')})")
+            st.write(f"Status Sistem: {row.get('status','-')}")
+            st.write(f"Validasi Admin: {row.get('validasi_admin','Belum')}")
+    
+        # =========================
+        # VALIDASI (1 SAJA)
+        # =========================
         with col3:
-
-            pilihan = ["Belum","Sesuai","Tidak Sesuai"]
-
+    
+            pilihan = ["Belum", "Sesuai", "Tidak Sesuai"]
+    
+            current = row.get("validasi_admin", "Belum")
+    
+            if current not in pilihan:
+                current = "Belum"
+    
             valid = st.selectbox(
                 "Validasi",
                 pilihan,
-                index=pilihan.index(row["validasi_admin"]) if row["validasi_admin"] in pilihan else 0,
-                key=f"v{i}"
+                index=pilihan.index(current),
+                key=f"val_{row['id']}"
             )
-
-            if st.button("Simpan", key=f"b{i}"):
-
+    
+            if st.button("Simpan", key=f"btn_{row['id']}"):
+    
                 cursor.execute("""
-                UPDATE aktivitas
-                SET validasi_admin=?
-                WHERE id=?
-                """,(valid,row["id"]))
-
-                conn.commit()
-
-                st.success("Update berhasil")
-                st.rerun()
-
-            # =========================
-            # FOTO
-            # =========================
-            with col1:
-                path = os.path.join("uploads", row["foto"])
-                if os.path.exists(path):
-                    st.image(path, width=150)
-                else:
-                    st.warning("Foto tidak ada")
-
-            # =========================
-            # INFO
-            # =========================
-            with col2:
-                st.write(f"**{row['nama']}**")
-                st.write(f"Kelas: {row['kelas']}")
-                st.write(f"Jam: {row['jam']} ({row['jenis']})")
-                st.write(f"Status Sistem: {row['status']}")
-                st.write(f"Validasi Admin: {row.get('validasi_admin','Belum')}")
-
-            # =========================
-            # VALIDASI ADMIN
-            # =========================
-            with col3:
-                pilihan = ["Belum","Sesuai","Tidak Sesuai"]
-
-                valid = st.selectbox(
-                    "Validasi",
-                    pilihan,
-                    index=pilihan.index(row["validasi_admin"]),
-                    key=f"val{i}"
-                )
-
-                if st.button("Simpan", key=f"btn{i}"):
-
-                    cursor.execute("""
                     UPDATE aktivitas
                     SET validasi_admin=?
                     WHERE id=?
-                    """,(valid,row["id"]))
-
-                    conn.commit()
-
-                    st.success("Validasi tersimpan")
-                    st.rerun()
-
-            st.markdown("---")
-
+                """, (valid, row["id"]))
+    
+                conn.commit()
+    
+                st.success("Validasi tersimpan")
+                st.rerun()
+    
+        st.markdown("---")
 # ==============================
 # LAPORAN KADIS
 # ==============================
