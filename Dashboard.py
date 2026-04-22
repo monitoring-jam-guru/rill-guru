@@ -854,7 +854,11 @@ elif menu == "Monitoring Hari Ini":
     tgl = tanggal.strftime("%Y-%m-%d")
     
     data = pd.read_sql(
-        "SELECT * FROM aktivitas WHERE tanggal=?",
+        """
+        SELECT id, nik, nama, tanggal, jam, kelas, jenis, status, foto, validasi_admin
+        FROM aktivitas
+        WHERE tanggal=?
+        """,
         conn,
         params=(tgl,)
     )
@@ -940,7 +944,7 @@ elif menu == "Monitoring Hari Ini":
                 "Validasi",
                 pilihan,
                 index=pilihan.index(current),
-                key=f"val_{row['id']}"
+                key=f"val_{row.get('id', i)}"
             )
 
             if st.button("Simpan", key=f"btn_{row['id']}"):
