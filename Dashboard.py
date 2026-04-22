@@ -821,15 +821,12 @@ elif menu == "Monitoring Hari Ini":
         tanggal = st.date_input("Tanggal", datetime.now())
     
     with col4:
-        jenjang_list = pd.read_sql(
-            "SELECT DISTINCT jenjang FROM guru WHERE jenjang IS NOT NULL AND jenjang != ''",
-            conn
-        )["jenjang"].dropna().tolist()
-    
+
         if len(jenjang_list) > 0:
             jenjang = st.selectbox("Jenjang", ["Semua"] + jenjang_list)
         else:
             jenjang = "Semua"
+            st.info("Data jenjang belum tersedia")
 
     # =========================
     # AMBIL DATA
