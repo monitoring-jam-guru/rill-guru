@@ -846,7 +846,7 @@ elif menu == "Monitoring Hari Ini":
     # AMBIL DATA SEKOLAH
     # =========================
     guru_map = pd.read_sql("SELECT nama, sekolah FROM guru", conn)
-    data = data.merge(guru_map, on="nama", how="left")
+    guru_map = pd.read_sql("SELECT nama, sekolah FROM guru", conn)
     # =========================
     # FILTER JENJANG DARI DATABASE (FIXED)
     # =========================
@@ -873,7 +873,7 @@ elif menu == "Monitoring Hari Ini":
     guru_map = pd.read_sql("SELECT DISTINCT nama, sekolah FROM guru", conn)
     
     # merge aman
-    data = data.merge(guru_map, on="nama", how="left")
+    guru_map = pd.read_sql("SELECT nama, sekolah FROM guru", conn)
     
     # =========================
     # FILTER TAMBAHAN
