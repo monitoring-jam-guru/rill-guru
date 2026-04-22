@@ -806,7 +806,7 @@ elif menu == "Monitoring Hari Ini":
     }
 
     # =========================
-    # FILTER BERJENJANG (FIX)
+    # FILTER BERJENJANG (FIX TOTAL)
     # =========================
     
     col1, col2, col3, col4 = st.columns(4)
@@ -820,23 +820,32 @@ elif menu == "Monitoring Hari Ini":
     with col3:
         tanggal = st.date_input("Tanggal", datetime.now())
     
-    # =========================
-    # AMBIL JENJANG (ANTI CRASH)
-    # =========================
+    with col4:
     
-    jenjang_list = []
+        # =========================
+        # AMBIL JENJANG (ANTI CRASH 100%)
+        # =========================
     
-    try:
-        df_jenjang = pd.read_sql(
-            "SELECT DISTINCT jenjang FROM guru WHERE jenjang IS NOT NULL AND jenjang != ''",
-            conn
-        )
-    
-        if "jenjang" in df_jenjang.columns:
-            jenjang_list = df_jenjang["jenjang"].dropna().tolist()
-    
-    except:
         jenjang_list = []
+    
+        try:
+            df_jenjang = pd.read_sql("SELECT * FROM guru", conn)
+    
+            if "jenjang" in df_jenjang.columns:
+                jenjang_list = df_jenjang["jenjang"].dropna().unique().tolist()
+    
+        except:
+            jenjang_list = []
+    
+        # =========================
+        # UI JENJANG
+        # =========================
+    
+        if len(jenjang_list) > 0:
+            jenjang = st.selectbox("Jenjang", ["Semua"] + jenjang_list)
+        else:
+            jenjang = "Semua"
+            st.info("Data jenjang belum tersedia")
 
     # =========================
     # AMBIL DATA
