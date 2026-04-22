@@ -32,7 +32,6 @@ CREATE TABLE IF NOT EXISTS guru(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 nik TEXT UNIQUE,
 nama TEXT,
-jenjang TEXT,
 sekolah TEXT,
 mapel TEXT,
 lat REAL,
@@ -66,8 +65,7 @@ jam TEXT,
 kelas TEXT,
 jenis TEXT,
 status TEXT,
-foto TEXT,
-validasi_admin TEXT DEFAULT 'Belum'
+foto TEXT
 )
 """)
 
@@ -84,28 +82,6 @@ sekolah TEXT
 
 conn.commit()
 
-# ==============================
-# TAMBAH KOLOM JIKA BELUM ADA
-# ==============================
-try:
-    cursor.execute("""
-        ALTER TABLE aktivitas 
-        ADD COLUMN validasi_admin TEXT DEFAULT 'Belum'
-    """)
-except:
-    pass
-
-try:
-    cursor.execute("ALTER TABLE aktivitas ADD COLUMN jam_jadwal TEXT")
-except:
-    pass
-
-try:
-    cursor.execute("ALTER TABLE aktivitas ADD COLUMN alasan TEXT")
-except:
-    pass
-
-conn.commit()
 # ==============================
 # USER DEFAULT
 # ==============================
@@ -186,15 +162,14 @@ role = st.session_state.role
 if role == "operator_dinas":
 
     menu = st.sidebar.selectbox(
-        "Menu",
-        [
-        "Dashboard",
-        "Import Excel",
-        "Monitoring Hari Ini",
-        "Rekap JP",   # 👈 TAMBAHKAN INI
-        "Laporan Kadis",
-        "Manajemen User"
-        ]
+    "Menu",
+    [
+    "Dashboard",
+    "Import Excel",
+    "Monitoring Hari Ini",
+    "Laporan Kadis",
+    "Manajemen User"
+    ]
     )
 
 elif role == "operator_sekolah":
@@ -306,24 +281,12 @@ if menu == "Dashboard":
     st.title("DIMORA-SU")
     st.caption("Digital Monitoring Jam Mengajar Guru")
 
-    # 🔥 SAMAKAN WAKTU (WIB)
-    hari_ini = (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d")
-    
+    hari_ini = datetime.now().strftime("%Y-%m-%d")
+
     data_today = aktivitas[aktivitas["tanggal"] == hari_ini]
-    
-    # 🔥 DEBUG kalau kosong
-    if len(data_today) == 0:
-        st.warning("Tidak ada data hari ini")
-        st.write("DEBUG tanggal:", hari_ini)
-        st.write("Contoh tanggal di DB:", aktivitas["tanggal"].unique()[:5])
-    
-    # 🔥 ANTISIPASI kalau kolom belum ada
-    if "validasi_admin" not in data_today.columns:
-        data_today["validasi_admin"] = "Belum"
-    
-    # 🔥 PERHITUNGAN YANG BENAR
-    sesuai = len(data_today[data_today["validasi_admin"] == "Sesuai"])
-    tidak = len(data_today[data_today["validasi_admin"] == "Tidak Sesuai"])
+
+    sesuai = len(data_today[data_today["status"]=="Sesuai"])
+    tidak = len(data_today[data_today["status"]=="Tidak Sesuai"])
 
     col1,col2,col3 = st.columns(3)
 
@@ -331,8 +294,7 @@ if menu == "Dashboard":
     col2.metric("Mengajar Sesuai", sesuai)
     col3.metric("Tidak Sesuai", tidak)
 
-    if len(data_today) > 0:
-        st.bar_chart(data_today.groupby("validasi_admin").size())
+    st.bar_chart(data_today.groupby("status").size())
 
 # ==============================
 # IMPORT EXCEL
@@ -372,7 +334,7 @@ elif menu == "Import Excel":
 
                     nik = str(row.get("nik","")).strip()
                     nama = str(row.get("nama","")).strip()
-                    jenjang = str(row.get("jenjang","")).strip()
+                    sekolah = str(row.get("sekolah","")).strip()
                     mapel = str(row.get("mapel","")).strip()
 
                     lat = float(row.get("lat",0))
@@ -384,11 +346,11 @@ elif menu == "Import Excel":
                     cursor.execute(
                     """
                     INSERT OR REPLACE INTO guru
-                    (nik,nama,jenjang,sekolah,mapel,lat,lon)
-                    VALUES (?,?,?,?,?,?,?)
+                    (nik,nama,sekolah,mapel,lat,lon)
+                    VALUES (?,?,?,?,?,?)
                     """,
-                    (nik,nama,jenjang,sekolah,mapel,lat,lon)
-)
+                    (nik,nama,sekolah,mapel,lat,lon)
+                    )
 
                     cursor.execute(
                     """
@@ -692,63 +654,35 @@ elif menu == "Upload Foto Mengajar":
                 path,
                 f"{nama} {st.session_state.kelas_aktif} {tanggal_str} {jam}"
             )
-            
-            # NONAKTIFKAN GOOGLE DRIVE (penyebab crash)
-            # hasil_upload = upload_drive(path)
-            
-            hasil_upload = "Upload lokal berhasil"
+    
+            hasil_upload = upload_drive(path)
+    
             st.info(hasil_upload)
     
             # =========================
             # SIMPAN DATABASE
             # =========================
-            
-            # 🔥 ambil hari indonesia
-            hari_map = {
-                "Monday": "Senin",
-                "Tuesday": "Selasa",
-                "Wednesday": "Rabu",
-                "Thursday": "Kamis",
-                "Friday": "Jumat",
-                "Saturday": "Sabtu",
-                "Sunday": "Minggu"
-            }
-            
-            hari_nama = hari_map[waktu.strftime("%A")]
-            tanggal_format = waktu.strftime("%d-%m-%Y")
-            
-            # 🔥 buat alasan otomatis
-            if status == "Tidak Sesuai":
-                alasan_text = (
-                    f"{hari_nama}, {tanggal_format} | "
-                    f"Upload {jenis_absen} pukul {jam}, "
-                    f"jadwal {mulai}-{selesai}"
-                )
-            else:
-                alasan_text = "Sesuai Jadwal"
-            
+    
             cursor.execute(
             """
             INSERT INTO aktivitas
-            (nik,nama,tanggal,jam,kelas,jenis,status,foto,jam_jadwal,alasan)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
+            (nik,nama,tanggal,jam,kelas,jenis,status,foto)
+            VALUES (?,?,?,?,?,?,?,?)
             """,
             (
-                nik,
-                nama,
-                tanggal_str,
-                jam,
-                st.session_state.kelas_aktif,
-                jenis_absen,
-                status,
-                filename,
-                f"{mulai} - {selesai}",
-                alasan_text
+            nik,
+            nama,
+            tanggal_str,
+            jam,
+            st.session_state.kelas_aktif,
+            jenis_absen,
+            status,
+            filename
             )
             )
-            
+    
             conn.commit()
-            
+    
             st.success(f"Absensi {jenis_absen} berhasil - Status : {status}")
 
 # ==============================
@@ -769,181 +703,112 @@ elif menu == "Riwayat Mengajar":
 
     st.dataframe(data)
 
+# ==============================
+# MONITORING
+# ==============================
+
 elif menu == "Monitoring Hari Ini":
 
-    st.title("📊 Monitoring & Validasi Admin")
+    st.title("Monitoring Guru")
 
-    # =========================
-    # DATA MASTER WILAYAH
-    # =========================
+    hari_ini=datetime.now().strftime("%Y-%m-%d")
 
-    cabang_dinas = [
-        "Cabdisdik Wilayah I",
-        "Cabdisdik Wilayah II",
-        "Cabdisdik Wilayah III",
-        "Cabdisdik Wilayah IV",
-        "Cabdisdik Wilayah V",
-        "Cabdisdik Wilayah VI",
-        "Cabdisdik Wilayah VII",
-        "Cabdisdik Wilayah VIII",
-        "Cabdisdik Wilayah IX",
-        "Cabdisdik Wilayah X",
-        "Cabdisdik Wilayah XI",
-        "Cabdisdik Wilayah XII",
-        "Cabdisdik Wilayah XIII",
-        "Cabdisdik Wilayah XIV"
-    ]
-
-    kabupaten_map = {
-        "Cabdisdik Wilayah I": ["Deli Serdang", "Kota Medan"],
-        "Cabdisdik Wilayah II": ["Langkat", "Kota Binjai"],
-        "Cabdisdik Wilayah III": ["Serdang Bedagai", "Kota Tebing Tinggi"],
-        "Cabdisdik Wilayah IV": ["Karo", "Dairi", "Pakpak Bharat"],
-        "Cabdisdik Wilayah V": ["Asahan", "Batu Bara", "Kota Tanjungbalai"],
-        "Cabdisdik Wilayah VI": ["Simalungun", "Kota Pematangsiantar"],
-        "Cabdisdik Wilayah VII": ["Labuhanbatu", "Labuhanbatu Utara", "Labuhanbatu Selatan"],
-        "Cabdisdik Wilayah VIII": ["Toba", "Samosir"],
-        "Cabdisdik Wilayah IX": ["Tapanuli Utara", "Humbang Hasundutan"],
-        "Cabdisdik Wilayah X": ["Tapanuli Tengah", "Kota Sibolga"],
-        "Cabdisdik Wilayah XI": ["Padangsidimpuan", "Tapanuli Selatan", "Mandailing Natal"],
-        "Cabdisdik Wilayah XII": ["Padang Lawas", "Padang Lawas Utara"],
-        "Cabdisdik Wilayah XIII": ["Nias", "Nias Utara", "Kota Gunungsitoli"],
-        "Cabdisdik Wilayah XIV": ["Nias Selatan", "Nias Barat"]
-    }
-
-    # =========================
-    # FILTER UI BERJENJANG (SUDAH DIPERBAIKI)
-    # =========================
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        cabang = st.selectbox("Cabang Dinas", cabang_dinas)
-    
-    with col2:
-        kabupaten = st.selectbox("Kabupaten", kabupaten_map.get(cabang, []))
-    
-    with col3:
-        jenjang = st.selectbox("Jenjang", ["SMA", "SMK", "SLB"])
-    
-    with col4:
-        hari_filter = st.date_input("Tanggal", datetime.now())
-    
-    kelas_filter = st.text_input("Kelas (opsional)")
-    
-    # =========================
-    # AMBIL DATA
-    # =========================
-    
-    tanggal = hari_filter.strftime("%Y-%m-%d")
-    
-    data = pd.read_sql(
-        "SELECT * FROM aktivitas WHERE tanggal=? ORDER BY nama,jam",
-        conn,
-        params=(tanggal,)
+    data=pd.read_sql(
+    "SELECT * FROM aktivitas WHERE tanggal=?",
+    conn,
+    params=(hari_ini,)
     )
-    # =========================
-    # AMBIL DATA SEKOLAH
-    # =========================
-    guru_map = pd.read_sql("SELECT nama, sekolah FROM guru", conn)
-    guru_map = pd.read_sql("SELECT nama, sekolah FROM guru", conn)
-    # =========================
-    # FILTER JENJANG DARI DATABASE (FIXED)
-    # =========================
-    if jenjang != "Semua":
-        data = data[data["jenjang"] == jenjang]
-    
-    # =========================
-    # FILTER JENJANG (TAMBAHAN WAJIB)
-    # =========================
-    if jenjang == "SMK":
-        data = data[data["sekolah"].str.contains("SMK", na=False)]
-    elif jenjang == "SMA":
-        data = data[data["sekolah"].str.contains("SMA", na=False)]
-    elif jenjang == "SLB":
-        data = data[data["sekolah"].str.contains("SLB", na=False)]
-    if len(data) == 0:
-        st.warning("Belum ada aktivitas pada tanggal ini")
-        st.stop()
-    
-    # =========================
-    # AMBIL DATA SEKOLAH (BERBASIS NPSN / GURU)
-    # =========================
-    
-    guru_map = pd.read_sql("SELECT DISTINCT nama, sekolah FROM guru", conn)
-    
-    # merge aman
-    guru_map = pd.read_sql("SELECT nama, sekolah FROM guru", conn)
-    
-    # =========================
-    # FILTER TAMBAHAN
-    # =========================
-    
-    if kelas_filter:
-        data = data[data["kelas"].str.contains(kelas_filter, case=False, na=False)]
-    
-    # filter sekolah (opsional tapi penting)
-    
-    if "sekolah" in data.columns:
-        sekolah_list = sorted(data["sekolah"].dropna().unique().tolist())
+
+    if len(data)==0:
+        st.warning("Belum ada aktivitas")
+
     else:
-        sekolah_list = []
-    
-    sekolah_filter = st.selectbox(
-        "Sekolah (berdasarkan data upload jadwal)",
-        ["Semua"] + sekolah_list
-    )
-    
-    if sekolah_filter != "Semua":
-        data = data[data["sekolah"] == sekolah_filter]
-    
-    # =========================
-    # FILTER FINAL INFO
-    # =========================
-    st.info(f"""
-    [INFO] FILTER AKTIF:
-    - Cabang Dinas : {cabang}
-    - Kabupaten    : {kabupaten}
-    - Jenjang      : {jenjang}
-    - Sekolah      : {sekolah_filter}
-    - Tanggal      : {tanggal}
-    """)
-    
-    # =========================
-    # TAMPILKAN DATA
-    # =========================
-    
-    for i, row in data.iterrows():
 
-        col1, col2, col3 = st.columns([1, 2, 1])
-    
-        with col1:
-            path = os.path.join("uploads", row["foto"])
-            if os.path.exists(path):
-                st.image(path, width=150)
+        for i,row in data.iterrows():
+
+            if row["status"]=="Sesuai":
+
+                st.success(
+                f"{row['nama']} - {row['jam']} - {row['jenis']}"
+                )
+
             else:
-                st.warning("Foto tidak ada")
-    
-        with col2:
-            st.write(f"**{row['nama']}**")
-            st.write(f"Sekolah: {row.get('sekolah','-')}")
-            st.write(f"Kelas: {row.get('kelas','-')}")
-            st.write(f"Jam: {row.get('jam','-')} ({row.get('jenis','-')})")
-            st.write(f"Status Sistem: {row.get('status','-')}")
-            st.write(f"Validasi Admin: {row.get('validasi_admin','Belum')}")
-    
-        with col3:
-            pilihan = ["Belum", "Sesuai", "Tidak Sesuai"]
-    
-            current = row.get("validasi_admin", "Belum")
-            if current not in pilihan:
-                current = "Belum"
-    
-            valid = st.selectbox(
-                "Validasi",
-                pilihan,
-                index=pilihan.index(current),
-                key=f"val_{row['id']}"   # 🔥 penting: pakai id biar tidak duplicate
-            )
-    
 
+                st.error(
+                f"{row['nama']} - {row['jam']} - {row['jenis']}"
+                )
+
+# ==============================
+# LAPORAN PDF
+# ==============================
+
+elif menu == "Laporan Kadis":
+
+    st.title("Laporan Monitoring")
+
+    hari_ini=datetime.now().strftime("%Y-%m-%d")
+
+    data=pd.read_sql(
+    "SELECT * FROM aktivitas WHERE tanggal=?",
+    conn,
+    params=(hari_ini,)
+    )
+
+    if st.button("Generate PDF"):
+
+        pdf=FPDF()
+
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+
+        pdf.cell(200,10,"Laporan Monitoring Guru",ln=True)
+        pdf.cell(200,10,f"Tanggal: {hari_ini}",ln=True)
+
+        pdf.ln(10)
+
+        for i,row in data.iterrows():
+
+            text=f"{row['nama']} - {row['jam']} - {row['status']}"
+
+            pdf.cell(200,10,text,ln=True)
+
+        pdf.output("laporan.pdf")
+
+        with open("laporan.pdf","rb") as f:
+
+            st.download_button(
+            "Download PDF",
+            f,
+            file_name="laporan_monitoring.pdf"
+            )
+
+# ==============================
+# MANAJEMEN USER
+# ==============================
+
+elif menu == "Manajemen User":
+
+    st.title("Manajemen User")
+
+    username=st.text_input("Username")
+    password=st.text_input("Password")
+
+    role=st.selectbox(
+    "Role",
+    ["operator_dinas","operator_sekolah","kabid","guru"]
+    )
+
+    sekolah=st.text_input("Sekolah")
+
+    if st.button("Tambah User"):
+
+        cursor.execute(
+        "INSERT INTO users (username,password,role,sekolah) VALUES (?,?,?,?)",
+        (username,password,role,sekolah)
+        )
+
+        conn.commit()
+
+        st.success("User berhasil ditambahkan")
+
+    st.dataframe(pd.read_sql("SELECT * FROM users",conn))
