@@ -577,15 +577,15 @@ elif menu == "Upload Foto Mengajar":
 
     jadwal_hari_ini = pd.read_sql(
     """
-    SELECT kelas,jam_mulai,jam_selesai
+    SELECT kelas,hari,jam_mulai,jam_selesai
     FROM jadwal
-    WHERE nik=? 
-    AND TRIM(LOWER(hari)) = TRIM(LOWER(?))
-    ORDER BY jam_mulai
+    WHERE nik=?
     """,
     conn,
-    params=(nik,hari)
+    params=(nik,)
     )
+    
+    st.write(jadwal_hari_ini)
 
     if len(jadwal_hari_ini) == 0:
 
