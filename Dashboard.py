@@ -577,12 +577,14 @@ elif menu == "Upload Foto Mengajar":
 
     jadwal_hari_ini = pd.read_sql(
     """
-    SELECT kelas,hari,jam_mulai,jam_selesai
+    SELECT kelas,jam_mulai,jam_selesai
     FROM jadwal
-    WHERE nik=?
+    WHERE nik=? 
+    AND TRIM(LOWER(hari)) = TRIM(LOWER(?))
+    ORDER BY time(jam_mulai)
     """,
     conn,
-    params=(nik,)
+    params=(nik,hari)
     )
     
     st.write(jadwal_hari_ini)
@@ -608,7 +610,7 @@ elif menu == "Upload Foto Mengajar":
     
         if st.button(
             f"Masuk Kelas {kelas}",
-            key=f"kelas_{i}"
+            key=f"kelas_{kelas}_{i}"
         ):
 
             st.session_state.kelas_aktif = kelas
