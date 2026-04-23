@@ -297,41 +297,97 @@ def upload_drive(path):
         return str(e)
 
 # ==============================
-# DASHBOARD
+# MENU UTAMA (WAJIB RAPI)
 # ==============================
 
 if menu == "Dashboard":
 
     st.title("DIMORA-SU")
-    st.caption("Digital Monitoring Jam Mengajar Guru")
+    st.write("Dashboard")
 
-    # 🔥 SAMAKAN WAKTU (WIB)
-    hari_ini = (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d")
-    
-    data_today = aktivitas[aktivitas["tanggal"] == hari_ini]
-    
-    # 🔥 DEBUG kalau kosong
-    if len(data_today) == 0:
-        st.warning("Tidak ada data hari ini")
-        st.write("DEBUG tanggal:", hari_ini)
-        st.write("Contoh tanggal di DB:", aktivitas["tanggal"].unique()[:5])
-    
-    # 🔥 ANTISIPASI kalau kolom belum ada
-    if "validasi_admin" not in data_today.columns:
-        data_today["validasi_admin"] = "Belum"
-    
-    # 🔥 PERHITUNGAN YANG BENAR
-    sesuai = len(data_today[data_today["validasi_admin"] == "Sesuai"])
-    tidak = len(data_today[data_today["validasi_admin"] == "Tidak Sesuai"])
+elif menu == "Import Excel":
 
-    col1,col2,col3 = st.columns(3)
+    st.title("Import Data Guru & Jadwal")
 
-    col1.metric("Total Guru", len(guru))
-    col2.metric("Mengajar Sesuai", sesuai)
-    col3.metric("Tidak Sesuai", tidak)
+    file = st.file_uploader("Upload File Excel", type=["xlsx"])
 
-    if len(data_today) > 0:
-        st.bar_chart(data_today.groupby("validasi_admin").size())
+    if file is not None:
+
+        try:
+            df_guru = pd.read_excel(file, sheet_name="Guru")
+            df_jadwal = pd.read_excel(file, sheet_name="Jadwal")
+
+            df_guru.columns = df_guru.columns.str.lower().str.strip()
+            df_jadwal.columns = df_jadwal.columns.str.lower().str.strip()
+
+            st.subheader("Preview Guru")
+            st.dataframe(df_guru)
+
+            st.subheader("Preview Jadwal")
+            st.dataframe(df_jadwal)
+
+            if st.button("Import Sekarang"):
+
+                conn.execute("BEGIN")
+
+                # IMPORT GURU
+                for _, row in df_guru.iterrows():
+
+                    nik = str(row.get("nik","")).strip()
+                    nama = str(row.get("nama","")).strip().upper()
+                    sekolah = str(row.get("sekolah","")).strip()
+                    mapel = str(row.get("mapel","")).strip()
+
+                    if nik == "":
+                        continue
+
+                    cursor.execute(
+                        "INSERT OR REPLACE INTO guru (nik,nama,sekolah,mapel) VALUES (?,?,?,?)",
+                        (nik,nama,sekolah,mapel)
+                    )
+
+                # IMPORT JADWAL
+                def clean_jam(jam):
+                    jam = str(jam).replace(".",":").strip()
+                    try:
+                        return pd.to_datetime(jam).strftime("%H:%M:%S")
+                    except:
+                        return None
+
+                for _, row in df_jadwal.iterrows():
+
+                    nama = str(row.get("nama","")).strip().upper()
+                    hari = str(row.get("hari","")).strip().lower()
+                    kelas = str(row.get("kelas","")).strip()
+
+                    jam_mulai = clean_jam(row.get("jam_mulai"))
+                    jam_selesai = clean_jam(row.get("jam_selesai"))
+
+                    data = cursor.execute(
+                        "SELECT nik FROM guru WHERE UPPER(nama)=?",
+                        (nama,)
+                    ).fetchone()
+
+                    if data:
+                        nik = data[0]
+
+                        cursor.execute(
+                            "INSERT OR REPLACE INTO jadwal (nik,nama,hari,kelas,jam_mulai,jam_selesai) VALUES (?,?,?,?,?,?)",
+                            (nik,nama,hari,kelas,jam_mulai,jam_selesai)
+                        )
+
+                conn.commit()
+                st.success("Import berhasil")
+
+        except Exception as e:
+            conn.rollback()
+            st.error("Error import")
+            st.write(e)
+
+elif menu == "Perbaiki Jadwal Guru":
+
+    st.title("Perbaiki Jadwal Guru")
+    st.write("Menu edit jadwal")
 
 # ==============================
 # IMPORT EXCEL (FIX FINAL)
