@@ -362,7 +362,19 @@ elif menu == "Import Excel":
             # RAPAPIKAN NAMA KOLOM
             # ======================
             df_guru.columns = df_guru.columns.astype(str).str.lower().str.strip()
+            # rapikan kolom
             df_jadwal.columns = df_jadwal.columns.astype(str).str.lower().str.strip()
+            
+            # 🔥 ambil kolom yang dibutuhkan saja
+            kolom_valid = ["nama","sekolah","hari","kelas","jam_mulai","jam_selesai"]
+            
+            df_jadwal = df_jadwal[[col for col in kolom_valid if col in df_jadwal.columns]]
+            
+            # 🔥 CEK kalau ada yang hilang
+            for kol in kolom_valid:
+                if kol not in df_jadwal.columns:
+                    st.error(f"Kolom {kol} tidak ditemukan di Excel Jadwal")
+                    st.stop()
 
             # ======================
             # DEBUG KOLOM
