@@ -457,52 +457,51 @@ elif menu == "Import Excel":
                     """,(nik,"12345","guru",sekolah))
 
                 # ======================
-                # IMPORT JADWAL
+                # IMPORT JADWAL (FIX TOTAL)
                 # ======================
+                
                 for _, row in df_jadwal.iterrows():
-
-                    nama = row["nama"]
-                    sekolah = row["sekolah"]
-                    hari = row["hari"]
-                    kelas = row["kelas"]
-
-                    # 🔥 FIX JAM (ANTI HILANG)
-                    jm = str(row["jam_mulai"]).replace(".",":")
-                    js = str(row["jam_selesai"]).replace(".",":")
-
-                    try:
-                        jam_mulai = pd.to_datetime(jm).strftime("%H:%M:%S")
-                        jam_selesai = pd.to_datetime(js).strftime("%H:%M:%S")
-                    except:
+                
+                    nama = str(row.get("nama","")).strip().upper()
+                    sekolah = str(row.get("sekolah","")).strip()
+                    hari = str(row.get("hari","")).strip().lower()
+                    kelas = str(row.get("kelas","")).strip()
+                
+                    # 🔥 NORMALISASI JAM (ANTI ERROR)
+                    def clean_jam(jam):
+                        jam = str(jam).replace(".",":").strip()
+                        try:
+                            return pd.to_datetime(jam, errors="coerce").strftime("%H:%M:%S")
+                        except:
+                            return None
+                
+                    jam_mulai = clean_jam(row.get("jam_mulai",""))
+                    jam_selesai = clean_jam(row.get("jam_selesai",""))
+                
+                    if jam_mulai is None or jam_selesai is None:
+                        st.warning(f"Jam error di kelas {kelas}")
                         continue
-
-                    # ambil NIK
+                
+                    # 🔥 COCOKKAN NAMA (ANTI GAGAL)
                     data = cursor.execute(
-                        "SELECT nik FROM guru WHERE nama=?",
+                        "SELECT nik FROM guru WHERE UPPER(nama)=?",
                         (nama,)
                     ).fetchone()
-
+                
                     if data is None:
+                        st.warning(f"Nama tidak cocok: {nama}")
                         continue
-
+                
                     nik = data[0]
-
-                    cursor.execute("""
-                        INSERT OR IGNORE INTO jadwal
-                        (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
-                        VALUES (?,?,?,?,?,?,?)
-                    """,(nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai))
-
-                conn.commit()
-
-                st.success("✅ Import Excel berhasil & bersih")
-
-        except Exception as e:
-
-            conn.rollback()
-
-            st.error("❌ Terjadi kesalahan saat membaca Excel")
-            st.write(e)
+                
+                    cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO jadwal
+                    (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
+                    VALUES (?,?,?,?,?,?,?)
+                    """,
+                    (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
+                    )
 
 # ==============================
 # PERBAIKI JADWAL GURU
