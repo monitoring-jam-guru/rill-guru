@@ -297,18 +297,46 @@ def upload_drive(path):
         return str(e)
 
 # ==============================
-# MENU UTAMA (WAJIB RAPI - FINAL)
+# DASHBOARD
 # ==============================
 
 if menu == "Dashboard":
 
     st.title("DIMORA-SU")
-    st.write("Dashboard")
+    st.caption("Digital Monitoring Jam Mengajar Guru")
 
+    # 🔥 SAMAKAN WAKTU (WIB)
+    hari_ini = (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d")
+    
+    data_today = aktivitas[aktivitas["tanggal"] == hari_ini]
+    
+    # 🔥 DEBUG kalau kosong
+    if len(data_today) == 0:
+        st.warning("Tidak ada data hari ini")
+        st.write("DEBUG tanggal:", hari_ini)
+        st.write("Contoh tanggal di DB:", aktivitas["tanggal"].unique()[:5])
+    
+    # 🔥 ANTISIPASI kalau kolom belum ada
+    if "validasi_admin" not in data_today.columns:
+        data_today["validasi_admin"] = "Belum"
+    
+    # 🔥 PERHITUNGAN YANG BENAR
+    sesuai = len(data_today[data_today["validasi_admin"] == "Sesuai"])
+    tidak = len(data_today[data_today["validasi_admin"] == "Tidak Sesuai"])
+
+    col1,col2,col3 = st.columns(3)
+
+    col1.metric("Total Guru", len(guru))
+    col2.metric("Mengajar Sesuai", sesuai)
+    col3.metric("Tidak Sesuai", tidak)
+
+    if len(data_today) > 0:
+        st.bar_chart(data_today.groupby("validasi_admin").size())
 
 # ==============================
-# IMPORT EXCEL (FINAL BERSIH)
+# IMPORT EXCEL (FIX FINAL)
 # ==============================
+
 elif menu == "Import Excel":
 
     st.title("Import Data Guru & Jadwal")
@@ -321,53 +349,85 @@ elif menu == "Import Excel":
             # ======================
             # BACA EXCEL
             # ======================
-            df_guru = pd.read_excel(file, sheet_name="Guru")
-            df_jadwal = pd.read_excel(file, sheet_name="Jadwal")
+            df_guru = pd.read_excel(file, sheet_name="Guru", header=0)
+            df_jadwal = pd.read_excel(file, sheet_name="Jadwal", header=0)
 
-            # bersihkan kolom
-            df_guru.columns = df_guru.columns.str.lower().str.strip()
-            df_jadwal.columns = df_jadwal.columns.str.lower().str.strip()
+            # ======================
+            # BERSIHKAN KOLOM ANEH
+            # ======================
+            df_guru = df_guru.loc[:, ~df_guru.columns.astype(str).str.contains("^Unnamed")]
+            df_jadwal = df_jadwal.loc[:, ~df_jadwal.columns.astype(str).str.contains("^Unnamed")]
 
-            st.subheader("Preview Guru")
+            # ======================
+            # RAPAPIKAN NAMA KOLOM
+            # ======================
+            df_guru.columns = df_guru.columns.astype(str).str.lower().str.strip()
+            df_jadwal.columns = df_jadwal.columns.astype(str).str.lower().str.strip()
+
+            # ======================
+            # DEBUG KOLOM
+            # ======================
+            st.write("Kolom Guru:", df_guru.columns.tolist())
+            st.write("Kolom Jadwal:", df_jadwal.columns.tolist())
+
+            # ======================
+            # VALIDASI KOLOM WAJIB
+            # ======================
+            kolom_guru = ["nik","nama","sekolah","mapel"]
+            kolom_jadwal = ["nama","sekolah","hari","kelas","jam_mulai","jam_selesai"]
+
+            for k in kolom_guru:
+                if k not in df_guru.columns:
+                    st.error(f"Kolom {k} tidak ada di sheet Guru")
+                    st.stop()
+
+            for k in kolom_jadwal:
+                if k not in df_jadwal.columns:
+                    st.error(f"Kolom {k} tidak ada di sheet Jadwal")
+                    st.stop()
+
+            # ======================
+            # AMBIL KOLOM PENTING
+            # ======================
+            df_guru = df_guru[kolom_guru + ["lat","lon"]] if "lat" in df_guru.columns else df_guru[kolom_guru]
+            df_jadwal = df_jadwal[kolom_jadwal]
+
+            # ======================
+            # BERSIHKAN DATA
+            # ======================
+            df_jadwal["hari"] = df_jadwal["hari"].astype(str).str.strip().str.lower()
+            df_jadwal["nama"] = df_jadwal["nama"].astype(str).str.strip()
+            df_jadwal["sekolah"] = df_jadwal["sekolah"].astype(str).str.strip()
+            df_jadwal["kelas"] = df_jadwal["kelas"].astype(str).str.strip()
+
+            # ======================
+            # PREVIEW
+            # ======================
+            st.subheader("Preview Data Guru")
             st.dataframe(df_guru)
 
-            st.subheader("Preview Jadwal")
+            st.subheader("Preview Data Jadwal (SUDAH BERSIH)")
             st.dataframe(df_jadwal)
 
             # ======================
-            # FUNGSI BERSIHKAN JAM
-            # ======================
-            def clean_jam(jam):
-                jam = str(jam).replace(".",":").strip()
-                try:
-                    return pd.to_datetime(jam, errors="coerce").strftime("%H:%M:%S")
-                except:
-                    return None
-
-            # ======================
-            # PROSES IMPORT
+            # IMPORT
             # ======================
             if st.button("Import Sekarang"):
 
                 conn.execute("BEGIN")
 
-                # ===== IMPORT GURU =====
+                # ======================
+                # IMPORT GURU
+                # ======================
                 for _, row in df_guru.iterrows():
 
                     nik = str(row.get("nik","")).strip()
-                    nama = str(row.get("nama","")).strip().upper()
+                    nama = str(row.get("nama","")).strip()
                     sekolah = str(row.get("sekolah","")).strip()
                     mapel = str(row.get("mapel","")).strip()
 
-                    try:
-                        lat = float(row.get("lat",0))
-                    except:
-                        lat = 0
-
-                    try:
-                        lon = float(row.get("lon",0))
-                    except:
-                        lon = 0
+                    lat = float(row.get("lat",0)) if "lat" in row else 0
+                    lon = float(row.get("lon",0)) if "lon" in row else 0
 
                     if nik == "":
                         continue
@@ -384,63 +444,331 @@ elif menu == "Import Excel":
                         VALUES (?,?,?,?)
                     """,(nik,"12345","guru",sekolah))
 
-
-                # ===== IMPORT JADWAL =====
+                # ======================
+                # IMPORT JADWAL
+                # ======================
                 for _, row in df_jadwal.iterrows():
 
-                    nama = str(row.get("nama","")).strip().upper()
-                    sekolah = str(row.get("sekolah","")).strip()
-                    hari = str(row.get("hari","")).strip().lower()
-                    kelas = str(row.get("kelas","")).strip()
+                    nama = row["nama"]
+                    sekolah = row["sekolah"]
+                    hari = row["hari"]
+                    kelas = row["kelas"]
 
-                    jam_mulai = clean_jam(row.get("jam_mulai"))
-                    jam_selesai = clean_jam(row.get("jam_selesai"))
+                    # 🔥 FIX JAM (ANTI HILANG)
+                    jm = str(row["jam_mulai"]).replace(".",":")
+                    js = str(row["jam_selesai"]).replace(".",":")
 
-                    if jam_mulai is None or jam_selesai is None:
-                        st.warning(f"Jam error di kelas {kelas}")
+                    try:
+                        jam_mulai = pd.to_datetime(jm).strftime("%H:%M:%S")
+                        jam_selesai = pd.to_datetime(js).strftime("%H:%M:%S")
+                    except:
                         continue
 
+                    # ambil NIK
                     data = cursor.execute(
-                        "SELECT nik FROM guru WHERE UPPER(nama)=?",
+                        "SELECT nik FROM guru WHERE nama=?",
                         (nama,)
                     ).fetchone()
 
                     if data is None:
-                        st.warning(f"Nama tidak cocok: {nama}")
                         continue
 
                     nik = data[0]
 
                     cursor.execute("""
-                        INSERT OR REPLACE INTO jadwal
+                        INSERT OR IGNORE INTO jadwal
                         (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
                         VALUES (?,?,?,?,?,?,?)
                     """,(nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai))
 
                 conn.commit()
-                st.success("✅ Import berhasil")
+
+                st.success("✅ Import Excel berhasil & bersih")
 
         except Exception as e:
+
             conn.rollback()
-            st.error("❌ Error import")
+
+            st.error("❌ Terjadi kesalahan saat membaca Excel")
             st.write(e)
 
+# ==============================
+# PERBAIKI JADWAL GURU
+# ==============================
 
-# ==============================
-# PERBAIKI JADWAL
-# ==============================
 elif menu == "Perbaiki Jadwal Guru":
 
     st.title("Perbaiki Jadwal Guru")
-    st.write("Menu edit jadwal")
 
+    data = pd.read_sql(
+        "SELECT * FROM jadwal ORDER BY nama,hari,jam_mulai",
+        conn
+    )
 
-# ==============================
-# UPLOAD FOTO
-# ==============================
+    if len(data) == 0:
+        st.warning("Belum ada jadwal")
+        st.stop()
+
+    guru = st.selectbox(
+        "Pilih Guru",
+        sorted(data["nama"].unique())
+    )
+
+    jadwal_guru = data[data["nama"] == guru]
+
+    for i,row in jadwal_guru.iterrows():
+
+        col1,col2,col3,col4,col5 = st.columns(5)
+
+        hari = col1.selectbox(
+            "Hari",
+            ["senin","selasa","rabu","kamis","jumat"],
+            index=["senin","selasa","rabu","kamis","jumat"].index(row["hari"]),
+            key=f"h{i}"
+        )
+
+        kelas = col2.text_input(
+            "Kelas",
+            row["kelas"],
+            key=f"k{i}"
+        )
+
+        mulai = col3.text_input(
+            "Jam Mulai",
+            row["jam_mulai"],
+            key=f"m{i}"
+        )
+
+        selesai = col4.text_input(
+            "Jam Selesai",
+            row["jam_selesai"],
+            key=f"s{i}"
+        )
+
+        if col5.button("Update",key=f"u{i}"):
+
+            cursor.execute(
+            """
+            UPDATE jadwal
+            SET hari=?,kelas=?,jam_mulai=?,jam_selesai=?
+            WHERE id=?
+            """,
+            (hari,kelas,mulai,selesai,row["id"])
+            )
+
+            conn.commit()
+
+            st.success("Jadwal berhasil diperbarui")
+            st.rerun()
+# =========================
+# UPLOAD FOTO MENGAJAR (FINAL FIX)
+# =========================
+
 elif menu == "Upload Foto Mengajar":
 
     st.title("Absensi Mengajar Guru")
+
+    nik = st.session_state.username
+
+    # =========================
+    # AMBIL DATA GURU
+    # =========================
+    data_guru = pd.read_sql(
+        "SELECT * FROM guru WHERE nik=?",
+        conn,
+        params=(nik,)
+    )
+
+    if len(data_guru) == 0:
+        st.error("Data guru tidak ditemukan")
+        st.stop()
+
+    nama = data_guru.iloc[0]["nama"]
+
+    st.success(f"Nama : {nama}")
+    st.info(f"NIK : {nik}")
+
+    # =========================
+    # PILIH TANGGAL
+    # =========================
+    tanggal = st.date_input("Pilih Tanggal Mengajar", datetime.now())
+
+    hari_map = {
+        "Monday":"Senin",
+        "Tuesday":"Selasa",
+        "Wednesday":"Rabu",
+        "Thursday":"Kamis",
+        "Friday":"Jumat",
+        "Saturday":"Sabtu",
+        "Sunday":"Minggu"
+    }
+
+    hari = hari_map.get(tanggal.strftime("%A"))
+
+    if hari is None:
+        st.warning("Hari tidak valid")
+        st.stop()
+
+    st.write(f"Hari Mengajar : **{hari}**")
+
+    # =========================
+    # AMBIL & FILTER JADWAL (ANTI BUG)
+    # =========================
+    jadwal_hari_ini = pd.read_sql(
+        "SELECT kelas,jam_mulai,jam_selesai,hari FROM jadwal WHERE nik=?",
+        conn,
+        params=(nik,)
+    )
+
+    if len(jadwal_hari_ini) == 0:
+        st.warning("Tidak ada data jadwal")
+        st.stop()
+
+    # bersihkan
+    jadwal_hari_ini["hari"] = jadwal_hari_ini["hari"].astype(str).str.strip().str.lower()
+    jadwal_hari_ini["jam_mulai"] = jadwal_hari_ini["jam_mulai"].astype(str).str.replace(".",":")
+    jadwal_hari_ini["jam_selesai"] = jadwal_hari_ini["jam_selesai"].astype(str).str.replace(".",":")
+
+    # filter hari
+    jadwal_hari_ini = jadwal_hari_ini[
+        jadwal_hari_ini["hari"] == hari.lower()
+    ]
+
+    if len(jadwal_hari_ini) == 0:
+        st.warning("Tidak ada jadwal mengajar hari ini")
+        st.stop()
+
+    # urutkan jam
+    jadwal_hari_ini = jadwal_hari_ini.sort_values("jam_mulai")
+
+    # =========================
+    # TAMPILKAN JADWAL
+    # =========================
+    st.subheader("Jadwal Hari Ini")
+
+    for i, row in jadwal_hari_ini.iterrows():
+
+        kelas = row["kelas"]
+        mulai = row["jam_mulai"]
+        selesai = row["jam_selesai"]
+
+        st.write(f"📚 {kelas} | {mulai} - {selesai}")
+
+        if st.button(f"Pilih {kelas}", key=f"kelas_{kelas}_{i}"):
+            st.session_state.kelas_aktif = kelas
+            st.session_state.jam_mulai = mulai
+            st.session_state.jam_selesai = selesai
+
+    # =========================
+    # SELFIE FOTO
+    # =========================
+    if "kelas_aktif" in st.session_state:
+
+        st.subheader(f"Selfie Kelas {st.session_state.kelas_aktif}")
+
+        jenis_absen = st.radio(
+            "Jenis Absensi",
+            ["Masuk Kelas", "Selesai Kelas"]
+        )
+
+        foto = st.camera_input("Ambil Foto")
+
+        if st.button("Upload Foto"):
+
+            if foto is None:
+                st.error("Ambil foto dulu")
+                st.stop()
+
+            waktu = datetime.utcnow() + timedelta(hours=7)
+
+            tanggal_str = waktu.strftime("%Y-%m-%d")
+            jam = waktu.strftime("%H:%M:%S")
+
+            jam_upload = datetime.strptime(jam, "%H:%M:%S")
+
+            mulai = st.session_state.jam_mulai
+            selesai = st.session_state.jam_selesai
+
+            mulai_dt = datetime.strptime(mulai, "%H:%M:%S")
+            selesai_dt = datetime.strptime(selesai, "%H:%M:%S")
+
+            status = "Tidak Sesuai"
+
+            # =========================
+            # VALIDASI MASUK (±5 MENIT)
+            # =========================
+            if jenis_absen == "Masuk Kelas":
+
+                awal = mulai_dt - timedelta(minutes=5)
+                akhir = mulai_dt + timedelta(minutes=5)
+
+                if awal <= jam_upload <= akhir:
+                    status = "Sesuai"
+
+            # =========================
+            # VALIDASI KELUAR (±5 MENIT)
+            # =========================
+            elif jenis_absen == "Selesai Kelas":
+
+                awal = selesai_dt - timedelta(minutes=5)
+                akhir = selesai_dt + timedelta(minutes=5)
+
+                if awal <= jam_upload <= akhir:
+                    status = "Sesuai"
+
+            # =========================
+            # SIMPAN FOTO
+            # =========================
+            if not os.path.exists("uploads"):
+                os.makedirs("uploads")
+
+            filename = f"{nik}_{tanggal_str}_{jam.replace(':','-')}.jpg"
+            path = os.path.join("uploads", filename)
+
+            with open(path, "wb") as f:
+                f.write(foto.getbuffer())
+
+            watermark(
+                path,
+                f"{nama} {st.session_state.kelas_aktif} {tanggal_str} {jam}"
+            )
+
+            st.info("Upload berhasil")
+
+            # =========================
+            # SIMPAN DB
+            # =========================
+            hari_nama = hari_map[waktu.strftime("%A")]
+            tanggal_format = waktu.strftime("%d-%m-%Y")
+
+            if status == "Tidak Sesuai":
+                alasan = f"{hari_nama}, {tanggal_format} | {jenis_absen} jam {jam} | jadwal {mulai}-{selesai}"
+            else:
+                alasan = "Sesuai Jadwal"
+
+            cursor.execute(
+            """
+            INSERT INTO aktivitas
+            (nik,nama,tanggal,jam,kelas,jenis,status,foto,jam_jadwal,alasan)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                nik,
+                nama,
+                tanggal_str,
+                jam,
+                st.session_state.kelas_aktif,
+                jenis_absen,
+                status,
+                filename,
+                f"{mulai} - {selesai}",
+                alasan
+            )
+            )
+
+            conn.commit()
+
+            st.success(f"Berhasil ({status})")
 
 # ==============================
 # RIWAYAT GURU
