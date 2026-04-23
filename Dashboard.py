@@ -334,7 +334,7 @@ if menu == "Dashboard":
         st.bar_chart(data_today.groupby("validasi_admin").size())
 
 # ==============================
-# IMPORT EXCEL
+# IMPORT EXCEL (FIX FINAL)
 # ==============================
 
 elif menu == "Import Excel":
@@ -346,19 +346,72 @@ elif menu == "Import Excel":
     if file is not None:
 
         try:
+            # ======================
+            # BACA EXCEL
+            # ======================
+            df_guru = pd.read_excel(file, sheet_name="Guru", header=0)
+            df_jadwal = pd.read_excel(file, sheet_name="Jadwal", header=0)
 
-            df_guru = pd.read_excel(file, sheet_name="Guru")
-            df_jadwal = pd.read_excel(file, sheet_name="Jadwal")
+            # ======================
+            # BERSIHKAN KOLOM ANEH
+            # ======================
+            df_guru = df_guru.loc[:, ~df_guru.columns.astype(str).str.contains("^Unnamed")]
+            df_jadwal = df_jadwal.loc[:, ~df_jadwal.columns.astype(str).str.contains("^Unnamed")]
 
-            df_guru.columns = df_guru.columns.str.lower().str.strip()
-            df_jadwal.columns = df_jadwal.columns.str.lower().str.strip()
+            # ======================
+            # RAPAPIKAN NAMA KOLOM
+            # ======================
+            df_guru.columns = df_guru.columns.astype(str).str.lower().str.strip()
+            df_jadwal.columns = df_jadwal.columns.astype(str).str.lower().str.strip()
 
+            # ======================
+            # DEBUG KOLOM
+            # ======================
+            st.write("Kolom Guru:", df_guru.columns.tolist())
+            st.write("Kolom Jadwal:", df_jadwal.columns.tolist())
+
+            # ======================
+            # VALIDASI KOLOM WAJIB
+            # ======================
+            kolom_guru = ["nik","nama","sekolah","mapel"]
+            kolom_jadwal = ["nama","sekolah","hari","kelas","jam_mulai","jam_selesai"]
+
+            for k in kolom_guru:
+                if k not in df_guru.columns:
+                    st.error(f"Kolom {k} tidak ada di sheet Guru")
+                    st.stop()
+
+            for k in kolom_jadwal:
+                if k not in df_jadwal.columns:
+                    st.error(f"Kolom {k} tidak ada di sheet Jadwal")
+                    st.stop()
+
+            # ======================
+            # AMBIL KOLOM PENTING
+            # ======================
+            df_guru = df_guru[kolom_guru + ["lat","lon"]] if "lat" in df_guru.columns else df_guru[kolom_guru]
+            df_jadwal = df_jadwal[kolom_jadwal]
+
+            # ======================
+            # BERSIHKAN DATA
+            # ======================
+            df_jadwal["hari"] = df_jadwal["hari"].astype(str).str.strip().str.lower()
+            df_jadwal["nama"] = df_jadwal["nama"].astype(str).str.strip()
+            df_jadwal["sekolah"] = df_jadwal["sekolah"].astype(str).str.strip()
+            df_jadwal["kelas"] = df_jadwal["kelas"].astype(str).str.strip()
+
+            # ======================
+            # PREVIEW
+            # ======================
             st.subheader("Preview Data Guru")
             st.dataframe(df_guru)
 
-            st.subheader("Preview Data Jadwal")
+            st.subheader("Preview Data Jadwal (SUDAH BERSIH)")
             st.dataframe(df_jadwal)
 
+            # ======================
+            # IMPORT
+            # ======================
             if st.button("Import Sekarang"):
 
                 conn.execute("BEGIN")
@@ -366,7 +419,6 @@ elif menu == "Import Excel":
                 # ======================
                 # IMPORT GURU
                 # ======================
-
                 for _, row in df_guru.iterrows():
 
                     nik = str(row.get("nik","")).strip()
@@ -374,61 +426,48 @@ elif menu == "Import Excel":
                     sekolah = str(row.get("sekolah","")).strip()
                     mapel = str(row.get("mapel","")).strip()
 
-                    lat = float(row.get("lat",0))
-                    lon = float(row.get("lon",0))
+                    lat = float(row.get("lat",0)) if "lat" in row else 0
+                    lon = float(row.get("lon",0)) if "lon" in row else 0
 
                     if nik == "":
                         continue
 
-                    cursor.execute(
-                    """
-                    INSERT OR REPLACE INTO guru
-                    (nik,nama,sekolah,mapel,lat,lon)
-                    VALUES (?,?,?,?,?,?)
-                    """,
-                    (nik,nama,sekolah,mapel,lat,lon)
-                    )
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO guru
+                        (nik,nama,sekolah,mapel,lat,lon)
+                        VALUES (?,?,?,?,?,?)
+                    """,(nik,nama,sekolah,mapel,lat,lon))
 
-                    cursor.execute(
-                    """
-                    INSERT OR IGNORE INTO users
-                    (username,password,role,sekolah)
-                    VALUES (?,?,?,?)
-                    """,
-                    (nik,"12345","guru",sekolah)
-                    )
-
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO users
+                        (username,password,role,sekolah)
+                        VALUES (?,?,?,?)
+                    """,(nik,"12345","guru",sekolah))
 
                 # ======================
                 # IMPORT JADWAL
                 # ======================
-
                 for _, row in df_jadwal.iterrows():
 
-                    nama = str(row.get("nama","")).strip()
-                    sekolah = str(row.get("sekolah","")).strip()
-                    hari = str(row.get("hari","")).strip().lower()
-                    kelas = str(row.get("kelas","")).strip()
+                    nama = row["nama"]
+                    sekolah = row["sekolah"]
+                    hari = row["hari"]
+                    kelas = row["kelas"]
 
-                    jam_mulai = pd.to_datetime(
-                        str(row.get("jam_mulai","")).replace(".",":"),
-                        errors="coerce"
-                    ).strftime("%H:%M:%S")
-                    
-                    jam_selesai = pd.to_datetime(
-                        str(row.get("jam_selesai","")).replace(".",":"),
-                        errors="coerce"
-                    ).strftime("%H:%M:%S")
+                    # 🔥 FIX JAM (ANTI HILANG)
+                    jm = str(row["jam_mulai"]).replace(".",":")
+                    js = str(row["jam_selesai"]).replace(".",":")
 
-                    if len(jam_mulai) == 5:
-                        jam_mulai += ":00"
+                    try:
+                        jam_mulai = pd.to_datetime(jm).strftime("%H:%M:%S")
+                        jam_selesai = pd.to_datetime(js).strftime("%H:%M:%S")
+                    except:
+                        continue
 
-                    if len(jam_selesai) == 5:
-                        jam_selesai += ":00"
-
+                    # ambil NIK
                     data = cursor.execute(
-                    "SELECT nik FROM guru WHERE nama=?",
-                    (nama,)
+                        "SELECT nik FROM guru WHERE nama=?",
+                        (nama,)
                     ).fetchone()
 
                     if data is None:
@@ -436,25 +475,23 @@ elif menu == "Import Excel":
 
                     nik = data[0]
 
-                    cursor.execute(
-                    """
-                    INSERT OR IGNORE INTO jadwal
-                    (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
-                    VALUES (?,?,?,?,?,?,?)
-                    """,
-                    (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
-                    )
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO jadwal
+                        (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
+                        VALUES (?,?,?,?,?,?,?)
+                    """,(nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai))
 
                 conn.commit()
 
-                st.success("Import Excel berhasil")
+                st.success("✅ Import Excel berhasil & bersih")
 
         except Exception as e:
 
             conn.rollback()
 
-            st.error("Terjadi kesalahan saat membaca Excel")
+            st.error("❌ Terjadi kesalahan saat membaca Excel")
             st.write(e)
+
 # ==============================
 # PERBAIKI JADWAL GURU
 # ==============================
