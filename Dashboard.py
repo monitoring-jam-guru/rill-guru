@@ -410,8 +410,15 @@ elif menu == "Import Excel":
                     hari = str(row.get("hari","")).strip().lower()
                     kelas = str(row.get("kelas","")).strip()
 
-                    jam_mulai = str(row.get("jam_mulai","")).replace(".",":")
-                    jam_selesai = str(row.get("jam_selesai","")).replace(".",":")
+                    jam_mulai = pd.to_datetime(
+                        str(row.get("jam_mulai","")).replace(".",":"),
+                        errors="coerce"
+                    ).strftime("%H:%M:%S")
+                    
+                    jam_selesai = pd.to_datetime(
+                        str(row.get("jam_selesai","")).replace(".",":"),
+                        errors="coerce"
+                    ).strftime("%H:%M:%S")
 
                     if len(jam_mulai) == 5:
                         jam_mulai += ":00"
