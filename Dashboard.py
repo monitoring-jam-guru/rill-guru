@@ -524,7 +524,7 @@ elif menu == "Perbaiki Jadwal Guru":
             st.success("Jadwal berhasil diperbarui")
             st.rerun()
 # =========================
-# UPLOAD FOTO MENGAJAR
+# UPLOAD FOTO MENGAJAR (FINAL FIX)
 # =========================
 
 elif menu == "Upload Foto Mengajar":
@@ -536,7 +536,6 @@ elif menu == "Upload Foto Mengajar":
     # =========================
     # AMBIL DATA GURU
     # =========================
-
     data_guru = pd.read_sql(
         "SELECT * FROM guru WHERE nik=?",
         conn,
@@ -555,71 +554,70 @@ elif menu == "Upload Foto Mengajar":
     # =========================
     # PILIH TANGGAL
     # =========================
-
     tanggal = st.date_input("Pilih Tanggal Mengajar", datetime.now())
-
-    hari_inggris = tanggal.strftime("%A")
 
     hari_map = {
         "Monday":"Senin",
         "Tuesday":"Selasa",
         "Wednesday":"Rabu",
         "Thursday":"Kamis",
-        "Friday":"Jumat"
+        "Friday":"Jumat",
+        "Saturday":"Sabtu",
+        "Sunday":"Minggu"
     }
 
-    hari = hari_map.get(hari_inggris)
-    st.write("Hari yang dipilih:", hari)
+    hari = hari_map.get(tanggal.strftime("%A"))
 
     if hari is None:
-
-        st.warning("Hari ini bukan jadwal sekolah")
+        st.warning("Hari tidak valid")
         st.stop()
 
-    st.write(f"Hari Mengajar : **{hari.capitalize()}**")
+    st.write(f"Hari Mengajar : **{hari}**")
 
     # =========================
-    # AMBIL JADWAL HARI INI
+    # AMBIL & FILTER JADWAL (ANTI BUG)
     # =========================
-
     jadwal_hari_ini = pd.read_sql(
-    """
-    SELECT kelas,jam_mulai,jam_selesai
-    FROM jadwal
-    WHERE nik=? 
-    AND TRIM(LOWER(hari)) = TRIM(LOWER(?))
-    ORDER BY time(jam_mulai)
-    """,
-    conn,
-    params=(nik,hari)
+        "SELECT kelas,jam_mulai,jam_selesai,hari FROM jadwal WHERE nik=?",
+        conn,
+        params=(nik,)
     )
-    
-    st.write(jadwal_hari_ini)
 
     if len(jadwal_hari_ini) == 0:
+        st.warning("Tidak ada data jadwal")
+        st.stop()
 
+    # bersihkan
+    jadwal_hari_ini["hari"] = jadwal_hari_ini["hari"].astype(str).str.strip().str.lower()
+    jadwal_hari_ini["jam_mulai"] = jadwal_hari_ini["jam_mulai"].astype(str).str.replace(".",":")
+    jadwal_hari_ini["jam_selesai"] = jadwal_hari_ini["jam_selesai"].astype(str).str.replace(".",":")
+
+    # filter hari
+    jadwal_hari_ini = jadwal_hari_ini[
+        jadwal_hari_ini["hari"] == hari.lower()
+    ]
+
+    if len(jadwal_hari_ini) == 0:
         st.warning("Tidak ada jadwal mengajar hari ini")
         st.stop()
 
-    st.subheader("Jadwal Mengajar Hari Ini")
+    # urutkan jam
+    jadwal_hari_ini = jadwal_hari_ini.sort_values("jam_mulai")
 
     # =========================
     # TAMPILKAN JADWAL
     # =========================
+    st.subheader("Jadwal Hari Ini")
 
-    for i,row in jadwal_hari_ini.iterrows():
+    for i, row in jadwal_hari_ini.iterrows():
 
         kelas = row["kelas"]
-        mulai = str(row["jam_mulai"])
-        selesai = str(row["jam_selesai"])
-    
-        st.write(f"📚 {kelas} | {mulai} - {selesai}")
-    
-        if st.button(
-            f"Masuk Kelas {kelas}",
-            key=f"kelas_{kelas}_{i}"
-        ):
+        mulai = row["jam_mulai"]
+        selesai = row["jam_selesai"]
 
+        st.write(f"📚 {kelas} | {mulai} - {selesai}")
+
+        if st.button(f"Pilih {kelas}", key=f"kelas_{kelas}_{i}"):
             st.session_state.kelas_aktif = kelas
             st.session_state.jam_mulai = mulai
             st.session_state.jam_selesai = selesai
@@ -627,115 +625,90 @@ elif menu == "Upload Foto Mengajar":
     # =========================
     # SELFIE FOTO
     # =========================
-    
     if "kelas_aktif" in st.session_state:
-    
+
         st.subheader(f"Selfie Kelas {st.session_state.kelas_aktif}")
-    
+
         jenis_absen = st.radio(
             "Jenis Absensi",
             ["Masuk Kelas", "Selesai Kelas"]
         )
-    
+
         foto = st.camera_input("Ambil Foto")
-    
-        if st.button("Upload Foto", key="upload_foto"):
-    
+
+        if st.button("Upload Foto"):
+
             if foto is None:
-                st.error("Silakan ambil foto terlebih dahulu")
+                st.error("Ambil foto dulu")
                 st.stop()
-    
+
             waktu = datetime.utcnow() + timedelta(hours=7)
-    
+
             tanggal_str = waktu.strftime("%Y-%m-%d")
             jam = waktu.strftime("%H:%M:%S")
-    
+
             jam_upload = datetime.strptime(jam, "%H:%M:%S")
-    
-            # ambil jadwal
-            mulai = st.session_state.jam_mulai.replace(".", ":")
-            selesai = st.session_state.jam_selesai.replace(".", ":")
-    
+
+            mulai = st.session_state.jam_mulai
+            selesai = st.session_state.jam_selesai
+
             mulai_dt = datetime.strptime(mulai, "%H:%M:%S")
             selesai_dt = datetime.strptime(selesai, "%H:%M:%S")
-    
+
             status = "Tidak Sesuai"
-    
+
             # =========================
-            # CEK MASUK KELAS
+            # VALIDASI MASUK (±5 MENIT)
             # =========================
-    
             if jenis_absen == "Masuk Kelas":
-    
-                mulai_toleransi = mulai_dt + timedelta(minutes=15)
-    
-                if mulai_dt <= jam_upload <= mulai_toleransi:
+
+                awal = mulai_dt - timedelta(minutes=5)
+                akhir = mulai_dt + timedelta(minutes=5)
+
+                if awal <= jam_upload <= akhir:
                     status = "Sesuai"
-    
+
             # =========================
-            # CEK SELESAI KELAS
+            # VALIDASI KELUAR (±5 MENIT)
             # =========================
-    
             elif jenis_absen == "Selesai Kelas":
-    
-                selesai_toleransi = selesai_dt + timedelta(minutes=15)
-    
-                if selesai_dt <= jam_upload <= selesai_toleransi:
+
+                awal = selesai_dt - timedelta(minutes=5)
+                akhir = selesai_dt + timedelta(minutes=5)
+
+                if awal <= jam_upload <= akhir:
                     status = "Sesuai"
-    
+
             # =========================
             # SIMPAN FOTO
             # =========================
-    
             if not os.path.exists("uploads"):
                 os.makedirs("uploads")
-    
+
             filename = f"{nik}_{tanggal_str}_{jam.replace(':','-')}.jpg"
-    
             path = os.path.join("uploads", filename)
-    
+
             with open(path, "wb") as f:
                 f.write(foto.getbuffer())
-    
+
             watermark(
                 path,
                 f"{nama} {st.session_state.kelas_aktif} {tanggal_str} {jam}"
             )
-            
-            # NONAKTIFKAN GOOGLE DRIVE (penyebab crash)
-            # hasil_upload = upload_drive(path)
-            
-            hasil_upload = "Upload lokal berhasil"
-            st.info(hasil_upload)
-    
+
+            st.info("Upload berhasil")
+
             # =========================
-            # SIMPAN DATABASE
+            # SIMPAN DB
             # =========================
-            
-            # 🔥 ambil hari indonesia
-            hari_map = {
-                "Monday": "Senin",
-                "Tuesday": "Selasa",
-                "Wednesday": "Rabu",
-                "Thursday": "Kamis",
-                "Friday": "Jumat",
-                "Saturday": "Sabtu",
-                "Sunday": "Minggu"
-            }
-            
             hari_nama = hari_map[waktu.strftime("%A")]
             tanggal_format = waktu.strftime("%d-%m-%Y")
-            
-            # 🔥 buat alasan otomatis
+
             if status == "Tidak Sesuai":
-                alasan_text = (
-                    f"{hari_nama}, {tanggal_format} | "
-                    f"Upload {jenis_absen} pukul {jam}, "
-                    f"jadwal {mulai}-{selesai}"
-                )
+                alasan = f"{hari_nama}, {tanggal_format} | {jenis_absen} jam {jam} | jadwal {mulai}-{selesai}"
             else:
-                alasan_text = "Sesuai Jadwal"
-            
+                alasan = "Sesuai Jadwal"
+
             cursor.execute(
             """
             INSERT INTO aktivitas
@@ -752,13 +725,13 @@ elif menu == "Upload Foto Mengajar":
                 status,
                 filename,
                 f"{mulai} - {selesai}",
-                alasan_text
+                alasan
             )
             )
-            
+
             conn.commit()
-            
-            st.success(f"Absensi {jenis_absen} berhasil - Status : {status}")
+
+            st.success(f"Berhasil ({status})")
 
 # ==============================
 # RIWAYAT GURU
