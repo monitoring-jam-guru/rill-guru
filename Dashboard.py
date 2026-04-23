@@ -579,11 +579,12 @@ elif menu == "Upload Foto Mengajar":
     """
     SELECT kelas,jam_mulai,jam_selesai
     FROM jadwal
-    WHERE nik=? AND lower(hari)=?
+    WHERE nik=? 
+    AND TRIM(LOWER(hari)) = TRIM(LOWER(?))
     ORDER BY jam_mulai
     """,
     conn,
-    params=(nik,hari.lower())
+    params=(nik,hari)
     )
 
     if len(jadwal_hari_ini) == 0:
