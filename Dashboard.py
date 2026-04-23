@@ -456,121 +456,143 @@ elif menu == "Import Excel":
                         VALUES (?,?,?,?)
                     """,(nik,"12345","guru",sekolah))
 
-                # ======================
-                # IMPORT JADWAL (FIX TOTAL)
-                # ======================
+                # ==============================
+                # IMPORT EXCEL (FINAL FIX 100%)
+                # ==============================
                 
-                for _, row in df_jadwal.iterrows():
+                elif menu == "Import Excel":
                 
-                    nama = str(row.get("nama","")).strip().upper()
-                    sekolah = str(row.get("sekolah","")).strip()
-                    hari = str(row.get("hari","")).strip().lower()
-                    kelas = str(row.get("kelas","")).strip()
+                    st.title("Import Data Guru & Jadwal")
                 
-                    # 🔥 NORMALISASI JAM (ANTI ERROR)
-                    def clean_jam(jam):
-                        jam = str(jam).replace(".",":").strip()
+                    file = st.file_uploader("Upload File Excel", type=["xlsx"])
+                
+                    if file is not None:
+                
                         try:
-                            return pd.to_datetime(jam, errors="coerce").strftime("%H:%M:%S")
-                        except:
-                            return None
+                            # ======================
+                            # BACA FILE
+                            # ======================
+                            df_guru = pd.read_excel(file, sheet_name="Guru")
+                            df_jadwal = pd.read_excel(file, sheet_name="Jadwal")
                 
-                    jam_mulai = clean_jam(row.get("jam_mulai",""))
-                    jam_selesai = clean_jam(row.get("jam_selesai",""))
+                            # bersihkan kolom
+                            df_guru.columns = df_guru.columns.str.lower().str.strip()
+                            df_jadwal.columns = df_jadwal.columns.str.lower().str.strip()
                 
-                    if jam_mulai is None or jam_selesai is None:
-                        st.warning(f"Jam error di kelas {kelas}")
-                        continue
+                            # DEBUG (biar jelas)
+                            st.write("Kolom Guru:", df_guru.columns.tolist())
+                            st.write("Kolom Jadwal:", df_jadwal.columns.tolist())
                 
-                    # 🔥 COCOKKAN NAMA (ANTI GAGAL)
-                    data = cursor.execute(
-                        "SELECT nik FROM guru WHERE UPPER(nama)=?",
-                        (nama,)
-                    ).fetchone()
+                            st.subheader("Preview Data Guru")
+                            st.dataframe(df_guru)
                 
-                    if data is None:
-                        st.warning(f"Nama tidak cocok: {nama}")
-                        continue
+                            st.subheader("Preview Data Jadwal")
+                            st.dataframe(df_jadwal)
                 
-                    nik = data[0]
+                            if st.button("Import Sekarang"):
                 
-                    cursor.execute(
-                    """
-                    INSERT OR REPLACE INTO jadwal
-                    (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
-                    VALUES (?,?,?,?,?,?,?)
-                    """,
-                    (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
-                    )
-
-# ==============================
-# PERBAIKI JADWAL GURU
-# ==============================
-
-elif menu == "Perbaiki Jadwal Guru":
-
-    st.title("Perbaiki Jadwal Guru")
-
-    data = pd.read_sql(
-        "SELECT * FROM jadwal ORDER BY nama,hari,jam_mulai",
-        conn
-    )
-
-    if len(data) == 0:
-        st.warning("Belum ada jadwal")
-        st.stop()
-
-    guru = st.selectbox(
-        "Pilih Guru",
-        sorted(data["nama"].unique())
-    )
-
-    jadwal_guru = data[data["nama"] == guru]
-
-    for i,row in jadwal_guru.iterrows():
-
-        col1,col2,col3,col4,col5 = st.columns(5)
-
-        hari = col1.selectbox(
-            "Hari",
-            ["senin","selasa","rabu","kamis","jumat"],
-            index=["senin","selasa","rabu","kamis","jumat"].index(row["hari"]),
-            key=f"h{i}"
-        )
-
-        kelas = col2.text_input(
-            "Kelas",
-            row["kelas"],
-            key=f"k{i}"
-        )
-
-        mulai = col3.text_input(
-            "Jam Mulai",
-            row["jam_mulai"],
-            key=f"m{i}"
-        )
-
-        selesai = col4.text_input(
-            "Jam Selesai",
-            row["jam_selesai"],
-            key=f"s{i}"
-        )
-
-        if col5.button("Update",key=f"u{i}"):
-
-            cursor.execute(
-            """
-            UPDATE jadwal
-            SET hari=?,kelas=?,jam_mulai=?,jam_selesai=?
-            WHERE id=?
-            """,
-            (hari,kelas,mulai,selesai,row["id"])
-            )
-
-            conn.commit()
-
-            st.success("Jadwal berhasil diperbarui")
-            st.rerun()
+                                conn.execute("BEGIN")
+                
+                                # ======================
+                                # IMPORT GURU
+                                # ======================
+                                for _, row in df_guru.iterrows():
+                
+                                    nik = str(row.get("nik","")).strip()
+                                    nama = str(row.get("nama","")).strip().upper()
+                                    sekolah = str(row.get("sekolah","")).strip()
+                                    mapel = str(row.get("mapel","")).strip()
+                
+                                    # amanin lat lon
+                                    try:
+                                        lat = float(row.get("lat",0))
+                                    except:
+                                        lat = 0
+                
+                                    try:
+                                        lon = float(row.get("lon",0))
+                                    except:
+                                        lon = 0
+                
+                                    if nik == "":
+                                        continue
+                
+                                    cursor.execute(
+                                    """
+                                    INSERT OR REPLACE INTO guru
+                                    (nik,nama,sekolah,mapel,lat,lon)
+                                    VALUES (?,?,?,?,?,?)
+                                    """,
+                                    (nik,nama,sekolah,mapel,lat,lon)
+                                    )
+                
+                                    cursor.execute(
+                                    """
+                                    INSERT OR IGNORE INTO users
+                                    (username,password,role,sekolah)
+                                    VALUES (?,?,?,?)
+                                    """,
+                                    (nik,"12345","guru",sekolah)
+                                    )
+                
+                                # ======================
+                                # FUNGSI BERSIHKAN JAM
+                                # ======================
+                                def clean_jam(jam):
+                                    jam = str(jam).replace(".",":").strip()
+                                    try:
+                                        return pd.to_datetime(jam, errors="coerce").strftime("%H:%M:%S")
+                                    except:
+                                        return None
+                
+                                # ======================
+                                # IMPORT JADWAL
+                                # ======================
+                                for _, row in df_jadwal.iterrows():
+                
+                                    nama = str(row.get("nama","")).strip().upper()
+                                    sekolah = str(row.get("sekolah","")).strip()
+                                    hari = str(row.get("hari","")).strip().lower()
+                                    kelas = str(row.get("kelas","")).strip()
+                
+                                    jam_mulai = clean_jam(row.get("jam_mulai",""))
+                                    jam_selesai = clean_jam(row.get("jam_selesai",""))
+                
+                                    if jam_mulai is None or jam_selesai is None:
+                                        st.warning(f"Jam error di kelas {kelas}")
+                                        continue
+                
+                                    # cari nik berdasarkan nama
+                                    data = cursor.execute(
+                                        "SELECT nik FROM guru WHERE UPPER(nama)=?",
+                                        (nama,)
+                                    ).fetchone()
+                
+                                    if data is None:
+                                        st.warning(f"Nama tidak cocok: {nama}")
+                                        continue
+                
+                                    nik = data[0]
+                
+                                    cursor.execute(
+                                    """
+                                    INSERT OR REPLACE INTO jadwal
+                                    (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
+                                    VALUES (?,?,?,?,?,?,?)
+                                    """,
+                                    (nik,nama,sekolah,hari,kelas,jam_mulai,jam_selesai)
+                                    )
+                
+                                conn.commit()
+                
+                                st.success("✅ Import Excel berhasil & data masuk semua")
+                
+                        except Exception as e:
+                
+                            conn.rollback()
+                
+                            st.error("❌ Terjadi kesalahan saat import")
+                            st.write(e)
 # =========================
 # UPLOAD FOTO MENGAJAR (FINAL FIX)
 # =========================
